@@ -18,54 +18,46 @@
 #include "main.h"
 #include "audio.h"
 #include "../m68000.h"
+// #include "m68000.h"
 #include "hostcall.h"
 #include "input.h"
-#include "joystick.h"
 #include "keymap.h"
 #include "screen.h"
 #include "shortcut.h"
 
+#define FORCE_WORKING_DIR /* Set default directory to cwd */
 
-#define FORCE_WORKING_DIR                 /* Set default directory to cwd */
-
-
-BOOL bQuitProgram=FALSE;                  /* Flag to quit program cleanly */
-BOOL bUseFullscreen=FALSE;
-BOOL bEmulationActive=TRUE;               /* Run emulation when started */
+BOOL bQuitProgram = FALSE; /* Flag to quit program cleanly */
+BOOL bUseFullscreen = FALSE;
+BOOL bEmulationActive = TRUE; /* Run emulation when started */
 BOOL bAppActive = FALSE;
-char szBootDiscImage[MAX_FILENAME_LENGTH] = { "" };
+char szBootDiscImage[MAX_FILENAME_LENGTH] = {""};
 
-char szWorkingDir[MAX_FILENAME_LENGTH] = { "" };
-char szCurrentDir[MAX_FILENAME_LENGTH] = { "" };
-
-extern enum RENDERERS use_renderer;
-
-int delta_x, delta_y, abs_delta_x, abs_delta_y;
+char szWorkingDir[MAX_FILENAME_LENGTH] = {""};
+char szCurrentDir[MAX_FILENAME_LENGTH] = {""};
 
 /*-----------------------------------------------------------------------*/
 /*
   Error handler
 */
-void Main_SysError(char *Error,char *Title)
+void Main_SysError(char *Error, char *Title)
 {
-  fprintf(stderr,"%s : %s\n",Title,Error);
+  fprintf(stderr, "%s : %s\n", Title, Error);
 }
-
 
 /*-----------------------------------------------------------------------*/
 /*
   Bring up message(handles full-screen as well as Window)
 */
-int Main_Message(char *lpText, char *lpCaption/*,unsigned int uType*/)
+int Main_Message(char *lpText, char *lpCaption /*,unsigned int uType*/)
 {
-  int Ret=0;
+  int Ret = 0;
 
   /* Show message */
-  fprintf(stderr,"%s: %s\n", lpCaption, lpText);
+  fprintf(stderr, "%s: %s\n", lpCaption, lpText);
 
-  return(Ret);
+  return (Ret);
 }
-
 
 /*-----------------------------------------------------------------------*/
 /*
@@ -73,7 +65,7 @@ int Main_Message(char *lpText, char *lpCaption/*,unsigned int uType*/)
 */
 void Main_PauseEmulation(void)
 {
-  if( bEmulationActive )
+  if (bEmulationActive)
   {
     Audio_EnableAudio(FALSE);
     bEmulationActive = FALSE;
@@ -86,7 +78,7 @@ void Main_PauseEmulation(void)
 */
 void Main_UnPauseEmulation(void)
 {
-  if( !bEmulationActive )
+  if (!bEmulationActive)
   {
     Audio_EnableAudio(1);
     bEmulationActive = TRUE;
@@ -99,81 +91,39 @@ void Main_UnPauseEmulation(void)
   Here we process the SDL events (keyboard, mouse, ...) and map it to
   Atari IKBD events.
 */
-
 void Main_EventHandler()
 {
   SDL_Event event;
-  int new_abs_x, new_abs_y;
 
-  SDL_JoystickUpdate();
-
-  while (SDL_PollEvent (&event))
-   switch( event.type )
-   {
+  while (SDL_PollEvent(&event))
+    switch (event.type)
+    {
     case SDL_QUIT:
-       bQuitProgram = TRUE;
-       SDL_Quit ();
-       exit (0);
-       break;
-    case SDL_MOUSEMOTION:               /* Read/Update internal mouse position */
-       input.motion_x += event.motion.xrel;
-       input.motion_y += event.motion.yrel;
-       input.abs_x = event.motion.x;
-       input.abs_y = event.motion.y;
-       break;
-	case SDL_JOYAXISMOTION:
-	   if (event.jaxis.axis <= 1)
-		   joystick_motion(event.jaxis.axis, event.jaxis.value);
-	   break;
-	case SDL_JOYBUTTONDOWN:
-	   Keymap_JoystickUpDown(event.jbutton.button, 1);
-	   break;
-	case SDL_JOYBUTTONUP:
-	   Keymap_JoystickUpDown(event.jbutton.button, 0);
-	   break;
-	case SDL_JOYHATMOTION:
-	   if (event.jhat.value == SDL_HAT_UP)
-		   Keymap_JoystickUpDown(12, 1);
-	   else if (event.jhat.value == SDL_HAT_DOWN)
-		   Keymap_JoystickUpDown(13, 1);
-	   else if (event.jhat.value == SDL_HAT_LEFT)
-		   Keymap_JoystickUpDown(14, 1);
-	   else if (event.jhat.value == SDL_HAT_RIGHT)
-		   Keymap_JoystickUpDown(15, 1);
-	   else {
-		   int i;
-		   for (i = 12; i < 16; i++)
-			   Keymap_JoystickUpDown(i, 0);
-	   }
-	   break;
+      bQuitProgram = TRUE;
+      SDL_Quit();
+      exit(0);
+      break;
+    case SDL_MOUSEMOTION: /* Read/Update internal mouse position */
+      input.motion_x += event.motion.xrel;
+      input.motion_y += event.motion.yrel;
+      input.abs_x = event.motion.x;
+      input.abs_y = event.motion.y;
+      break;
     case SDL_MOUSEBUTTONDOWN:
-       Input_MousePress (event.button.button);
-       break;
+      Input_MousePress(event.button.button);
+      break;
     case SDL_MOUSEBUTTONUP:
-       Input_MouseRelease (event.button.button);
-       break;
+      Input_MouseRelease(event.button.button);
+      break;
     case SDL_KEYDOWN:
-       Keymap_KeyDown(&event.key.keysym);
-       break;
+      Keymap_KeyDown(&event.key.keysym);
+      break;
     case SDL_KEYUP:
-       Keymap_KeyUp(&event.key.keysym);
-       break;
-   }
-
-  input.motion_x += delta_x;
-  input.motion_y += delta_y;
-
-  new_abs_x = input.abs_x + abs_delta_x;
-  if (new_abs_x > 0 && new_abs_x < screen_w)
-	  input.abs_x = new_abs_x;
-
-  new_abs_y = input.abs_y + abs_delta_y;
-  if (new_abs_y > 0 && new_abs_y < screen_h)
-	  input.abs_y = new_abs_y;
-
-  Input_Update ();
+      Keymap_KeyUp(&event.key.keysym);
+      break;
+    }
+  Input_Update();
 }
-
 
 /*-----------------------------------------------------------------------*/
 /*
@@ -184,51 +134,49 @@ void Main_ReadParameters(int argc, char *argv[])
   int i;
 
   /* Scan for any which we can use */
-  for(i=1; i<argc; i++)
+  for (i = 1; i < argc; i++)
   {
-    if (strlen(argv[i])>0)
+    if (strlen(argv[i]) > 0)
     {
-      if (!strcmp(argv[i],"--help") || !strcmp(argv[i],"-h"))
+      if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
       {
         printf("Usage:\n frontier [options]\n"
                "Where options are:\n"
                "  --help or -h          Print this help text and exit.\n"
                "  --fullscreen or -f    Try to use fullscreen mode.\n"
                "  --nosound             Disable sound (faster!).\n"
-               "  --size w h            Start at specified window size.\n"
-			   "  --old-renderer        Start with the old renderer.\n"
-              );
+               "  --size w h            Start at specified window size.\n");
         exit(0);
       }
-      else if (!strcmp(argv[i],"--fullscreen") || !strcmp(argv[i],"-f"))
+      else if (!strcmp(argv[i], "--fullscreen") || !strcmp(argv[i], "-f"))
       {
-        bUseFullscreen=TRUE;
+        bUseFullscreen = TRUE;
       }
-      else if ( !strcmp(argv[i],"--nosound") )
+      else if (!strcmp(argv[i], "--nosound"))
       {
-        bDisableSound=TRUE;
+        bDisableSound = TRUE;
       }
-	  else if (!strcmp(argv[i], "--old-renderer"))
-		use_renderer = R_OLD;
-      else if ( !strcmp(argv[i],"--size") )
+      else if (!strcmp(argv[i], "--size"))
       {
-	screen_h = 0;
-	if (++i < argc)	screen_w = atoi (argv[i]);
-	if (++i < argc)	screen_h = atoi (argv[i]);
-	/* fe2 likes 1.6 aspect ratio until i fix the mouse position
-	 * to 3d object position code... */
-	if (screen_h == 0) screen_h = 5*screen_w/8;
+        screen_h = 0;
+        if (++i < argc)
+          screen_w = atoi(argv[i]);
+        if (++i < argc)
+          screen_h = atoi(argv[i]);
+        /* fe2 likes 1.6 aspect ratio until i fix the mouse position
+         * to 3d object position code... */
+        if (screen_h == 0)
+          screen_h = 5 * screen_w / 8;
       }
       else
       {
-	      /* some time make it possible to read alternative
-	       * names for fe2.bin from command line */
-	      fprintf(stderr,"Illegal parameter: %s\n",argv[i]);
+        /* some time make it possible to read alternative
+         * names for fe2.bin from command line */
+        fprintf(stderr, "Illegal parameter: %s\n", argv[i]);
       }
     }
   }
 }
-
 
 /*-----------------------------------------------------------------------*/
 /*
@@ -238,24 +186,26 @@ void Main_Init(void)
 {
   /* Init SDL's video subsystem. Note: Audio and joystick subsystems
      will be initialized later (failures there are not fatal). */
-  if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK) < 0)
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0)
   {
-    fprintf(stderr, "Could not initialize the SDL library:\n %s\n", SDL_GetError() );
+    fprintf(stderr, "Could not initialize the SDL library:\n %s\n", SDL_GetError());
     exit(-1);
   }
-  
+
   Screen_Init();
-  Init680x0();                  /* Init CPU emulation */
+  Init680x0(); /* Init CPU emulation */
   Audio_Init();
   Keymap_Init();
 
-  if(bQuitProgram)
+  if (bQuitProgram)
   {
     SDL_Quit();
     exit(-2);
   }
-}
 
+  printf("Using Software Render -- TODO Fix GL Renderer\n");
+  Screen_ToggleRenderer();
+}
 
 /*-----------------------------------------------------------------------*/
 /*
@@ -263,7 +213,6 @@ void Main_Init(void)
 */
 void Main_UnInit(void)
 {
-  Keymap_UnInit();
   Audio_UnInit();
   Screen_UnInit();
 
@@ -271,19 +220,20 @@ void Main_UnInit(void)
   SDL_Quit();
 }
 
-static Uint32 vbl_callback ()
+static Uint32 vbl_callback()
 {
-	FlagException (0);
-	return 20;
+  FlagException(0);
+  return 20;
 }
 
-void sig_handler (int signum)
+void sig_handler(int signum)
 {
-	if (signum == SIGSEGV) {
-		printf ("Segfault! All is lost! Abandon ship!\n");
-		Call_DumpDebug ();
-		abort ();
-	}
+  if (signum == SIGSEGV)
+  {
+    printf("Segfault! All is lost! Abandon ship!\n");
+    Call_DumpDebug();
+    abort();
+  }
 }
 
 /*-----------------------------------------------------------------------*/
@@ -292,10 +242,10 @@ void sig_handler (int signum)
 */
 int main(int argc, char *argv[])
 {
-  signal (SIGSEGV, sig_handler);
-	
+  signal(SIGSEGV, sig_handler);
+
   /* Generate random seed */
-  srand( time(NULL) );
+  srand(time(NULL));
 
   /* Check for any passed parameters */
   Main_ReadParameters(argc, argv);
@@ -304,19 +254,17 @@ int main(int argc, char *argv[])
   Main_Init();
 
   /* Switch immediately to fullscreen if user wants to */
-  if( bUseFullscreen )
+  if (bUseFullscreen)
     Screen_ToggleFullScreen();
 
-  SDL_AddTimer (20, &vbl_callback, NULL);
-  
+  SDL_AddTimer(20, &vbl_callback, NULL);
+
   /* Run emulation */
   Main_UnPauseEmulation();
-  Start680x0();                 /* Start emulation */
+  Start680x0(); /* Start emulation */
 
   /* Un-init emulation system */
   Main_UnInit();
 
-  return(0);
+  return (0);
 }
-
-

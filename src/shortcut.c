@@ -12,30 +12,30 @@
 #include "shortcut.h"
 #include "hostcall.h"
 #include "../m68000.h"
-
+// #include "m68000.h"
 
 /* List of possible short-cuts(MUST match SHORTCUT_xxxx) */
-char *pszShortCutTextStrings[NUM_SHORTCUTS+1] = {
-  "(not assigned)",
-  "Full Screen",
-  "Mouse Mode",
-  NULL  /*term*/
+const char *pszShortCutTextStrings[NUM_SHORTCUTS + 1] = {
+    "(not assigned)",
+    "Full Screen",
+    "Mouse Mode",
+    NULL /*term*/
 };
 
-char *pszShortCutF11TextString[] = {
-  "Full Screen",
-  NULL  /*term*/
+const char *pszShortCutF11TextString[] = {
+    "Full Screen",
+    NULL /*term*/
 };
 
-char *pszShortCutF12TextString[] = {
-  "Mouse Mode",
-  NULL  /*term*/
+const char *pszShortCutF12TextString[] = {
+    "Mouse Mode",
+    NULL /*term*/
 };
 
 ShortCutFunction_t pShortCutFunctions[NUM_SHORTCUTS] = {
-  NULL,
-  ShortCut_FullScreen,
-  ShortCut_MouseMode,
+    NULL,
+    ShortCut_FullScreen,
+    ShortCut_MouseMode,
 };
 
 SHORTCUT_KEY ShortCutKey;
@@ -47,7 +47,7 @@ SHORTCUT_KEY ShortCutKey;
 void ShortCut_ClearKeys(void)
 {
   /* Clear short-cut key structure */
-  memset (&ShortCutKey,0, sizeof(SHORTCUT_KEY));
+  memset(&ShortCutKey, 0, sizeof(SHORTCUT_KEY));
 }
 
 /*-----------------------------------------------------------------------*/
@@ -57,30 +57,30 @@ void ShortCut_ClearKeys(void)
 void ShortCut_CheckKeys(void)
 {
   /* Check for supported keys: */
-  switch(ShortCutKey.Key) {
-     case SDLK_F11:                  /* Switch between fullscreen/windowed mode */
-       ShortCut_FullScreen();
-       break;
-     case SDLK_m:                    /* Toggle mouse mode */
-       ShortCut_MouseMode();
-       break;
-     case SDLK_q:                    /* Quit program */
-       SDL_Quit ();
-       exit (0);
-       bQuitProgram = TRUE;
-       break;
-     case SDLK_d:
-       Call_DumpDebug ();
-       break;
-     case SDLK_e:
-       Screen_ToggleRenderer ();
-       break;
+  switch (ShortCutKey.Key)
+  {
+  case SDLK_F11: /* Switch between fullscreen/windowed mode */
+    ShortCut_FullScreen();
+    break;
+  case SDLK_m: /* Toggle mouse mode */
+    ShortCut_MouseMode();
+    break;
+  case SDLK_q: /* Quit program */
+    SDL_Quit();
+    exit(0);
+    bQuitProgram = TRUE;
+    break;
+  case SDLK_d:
+    Call_DumpDebug();
+    break;
+  case SDLK_e:
+    Screen_ToggleRenderer();
+    break;
   }
 
-    /* And clear */
-    ShortCut_ClearKeys();
+  /* And clear */
+  ShortCut_ClearKeys();
 }
-
 
 /*-----------------------------------------------------------------------*/
 /*
@@ -88,9 +88,8 @@ void ShortCut_CheckKeys(void)
 */
 void ShortCut_FullScreen(void)
 {
-	Screen_ToggleFullScreen ();
+  Screen_ToggleFullScreen();
 }
-
 
 /*-----------------------------------------------------------------------*/
 /*
@@ -98,19 +97,21 @@ void ShortCut_FullScreen(void)
 */
 void ShortCut_MouseMode(void)
 {
-  bGrabMouse = !bGrabMouse;        /* Toggle flag */
+  bGrabMouse = !bGrabMouse; /* Toggle flag */
 
-  if(!bInFullScreen)
+  if (!bInFullScreen)
   {
-    if(bGrabMouse)
+    if (bGrabMouse)
     {
-      SDL_WM_GrabInput(SDL_GRAB_ON);
+      // SDL_WM_GrabInput(SDL_GRAB_ON);
+      // SDL_WM_GrabInput(SDL_TRUE);
+      SDL_SetRelativeMouseMode(SDL_TRUE);
     }
     else
     {
-      SDL_WM_GrabInput(SDL_GRAB_OFF);
+      // SDL_WM_GrabInput(SDL_GRAB_OFF);
+      // SDL_WM_GrabInput(SDL_FALSE);
+      SDL_SetRelativeMouseMode(SDL_FALSE);
     }
   }
 }
-
-

@@ -1,8 +1,6 @@
 #ifndef _M68K_H
 #define _M68K_H
 
-//#define M68K_DEBUG
-
 /* use this type to mean m68k pointer, which becomes a host machine
  * pointer when STRam (mem base) is added to it). */
 typedef unsigned int p68K;
@@ -18,11 +16,10 @@ typedef void (*HOSTCALL) ();
 extern HOSTCALL hcalls [];
 
 extern char *STRam;
-# ifdef M68K_DEBUG
 extern int line_no;
-# endif /* M68K_DEBUG */
 
-extern int Init680x0 ();
+// extern int Init680x0 ();
+extern void Init680x0 ();
 extern void Start680x0 ();
 extern void FlagException (int num);
 extern int GetReg (int reg);
@@ -54,3 +51,5 @@ extern int GetCFlag ();
 extern void SetZFlag (char val);
 
 #endif /* _M68K_H */
+
+
