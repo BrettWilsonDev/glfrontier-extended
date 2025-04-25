@@ -5,13 +5,14 @@
 	+ GL rendering is not implemented, so the game will be in software rendering mode.
 	+ Parts of input are not working, but the game can be played.
     + music and some sfx are not working
+	+ web build is not working despite the bat file in tools
 
 ## What's New in This Fork
 This fork has replaced the old build system with CMake.
 
 ## Dependencies
 Required: 
-* 32 Bit GCC Compiler
+* GCC Compiler
 * CMake
 
 ## How to Build
