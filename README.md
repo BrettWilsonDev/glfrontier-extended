@@ -1,6 +1,6 @@
 # IMPORTANT INFORMATION
 
-* **Compiler Requirement**: This project will not build without a 32-bit GCC compiler.
+* **Compiler Requirement**: This project will not build without a GCC compiler.
 * **Port Status**: The port is not 100% working, but it is very close. Note that:
 	+ GL rendering is not implemented, so the game will be in software rendering mode.
 	+ Parts of input are not working, but the game can be played.
@@ -27,5 +27,6 @@ Required:
 * Fix SDL1 to SDL2 input address mismatch or bind missing inputs manually
 * Fix OpenGL rendering
 * Fix music and sound
-* Rewrite to work with 64-bit GCC
+* Rewrite parts of the emulator to fix Speed up bug
 * Make other compilers work and get rid of OS-specific headers
+* Fix Web build (if possible)

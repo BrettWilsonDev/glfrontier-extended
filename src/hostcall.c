@@ -32,6 +32,8 @@
 #include "keymap.h"
 #include "shortcut.h"
 
+#include <stdint.h> 
+
 /*
   GEMDOS error codes, See 'The Atari Compendium' D.3
   Call_Fread, Fwrite, etc should return these.
@@ -73,8 +75,10 @@
 
 void Call_Memset()
 {
-	int adr, count;
-	unsigned long Params;
+	// int adr, count;
+	int32_t adr, count;
+	// unsigned long Params;
+	uint32_t Params;
 
 	Params = GetReg(REG_A7);
 	Params -= SIZE_WORD;

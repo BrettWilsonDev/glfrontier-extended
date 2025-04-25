@@ -7,7 +7,7 @@ project(${PROJECT_NAME} C)
 
 set(CMAKE_C_STANDARD 99)
 
-set(CMAKE_C_FLAGS "-m32") # must be 32 bit gcc
+# set(CMAKE_C_FLAGS "-m32") # must be 32 bit gcc
 
 ##########################################################################################
 # Configurable options

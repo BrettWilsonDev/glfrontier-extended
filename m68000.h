@@ -1,16 +1,26 @@
 #ifndef _M68K_H
 #define _M68K_H
 
+#include <stdint.h>
+
 /* use this type to mean m68k pointer, which becomes a host machine
  * pointer when STRam (mem base) is added to it). */
-typedef unsigned int p68K;
+// typedef unsigned int p68K;
+typedef uint32_t p68K;
 
-typedef unsigned int u32;
-typedef unsigned short u16;
-typedef unsigned char u8;
-typedef signed int s32;
-typedef signed short s16;
-typedef signed char s8;
+// typedef unsigned int u32;
+// typedef unsigned short u16;
+// typedef unsigned char u8;
+// typedef signed int s32;
+// typedef signed short s16;
+// typedef signed char s8;
+
+typedef uint32_t u32;
+typedef uint16_t u16;
+typedef uint8_t u8;
+typedef int32_t  s32;
+typedef int16_t  s16;
+typedef int8_t   s8;
 
 typedef void (*HOSTCALL) ();
 extern HOSTCALL hcalls [];
@@ -33,7 +43,9 @@ extern p68K exception_handlers[32];
 #define STMemory_WriteWord	MemWriteWord
 #define STMemory_WriteLong	MemWriteLong
 
-#define STRAM_ADDR(Var)  ((u32)STRam+((u32)Var&0x00ffffff))
+// #define STRAM_ADDR(Var)  ((u32)STRam+((u32)Var&0x00ffffff))
+#define STRAM_ADDR(Var) ((STRam) + ((Var) & 0x00ffffff))
+
 
 extern char MemReadByte (p68K pos);
 extern short MemReadWord (p68K pos);
