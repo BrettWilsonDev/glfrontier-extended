@@ -87,7 +87,9 @@
  {
 	 if (exception_handlers[num]) {
 		 exceptions_pending |= (1 << num);  // Set the bit for the pending exception
-		 exceptions_pending_nums[num]++;   // Increment the pending exception count
+
+		 // Increment the pending exception count 
+		 exceptions_pending_nums[num] = 1;   // A hacky fix for the speed up bug. TODO fix the incrementing version: exceptions_pending_nums[num]++;
 	 }
  }
  
