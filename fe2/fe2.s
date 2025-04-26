@@ -263,7 +263,7 @@ L6e_rts:
 L70_StartMusic:
 		* d0:
 		* -1 = random
-		* -2 =  knows
+		* -2 = fuck knows
 		* >=0 = index
 		movem.l	d1-2,-(a7)
 		movem.l	A6_opt_selected_music(a6),d1-2
@@ -338,7 +338,7 @@ L60f6_light_tint_table:
 L877c_opt_black_space:
 		ds.b	4024
 
-L9734__game_objs:
+L9734_fucking_game_objs:
 		ds.b	8
 
 L973c_game_data:
@@ -5564,7 +5564,7 @@ L2ecc2_MakePalette:
 		subq.w	#8,d0
 		bmi.s	l2ec80
 		moveq	#0,d1
-		* Unset the col_indices 
+		* Unset the col_indices shit
 	l2ecd8:	move.w	6(a0,d0.w),d2
 		move.b	d1,0(a2,d2.w)
 		subq.w	#4,d0
@@ -9611,7 +9611,7 @@ L3810e:
 		moveq	#0,d5
 		bra.w	L38040
 
-L38150_TubeEnd:
+L38150_TubeEndShit:
 		movem.l	d0-2,12(a7)
 		movem.w	d3-5,4(a7)
 		*hcall	#Nu_PutOval
@@ -9741,7 +9741,7 @@ L38150_TubeEnd:
 
 * angle in d7. Angles are in form of 32768 = 360 degrees.
 * This is squished to the sin table's 4096 = 360 degrees. (2 bytes per value)
-* Vectors v1 (in a0), v2 (in a1) are perpendicular. This  function
+* Vectors v1 (in a0), v2 (in a1) are perpendicular. This fucking function
 * rotates them about the 3rd perpendicular thingy in 3dness.
 * 
 * Does: v1' =  v2*sin(ang) + v1*cos(ang)
@@ -10051,7 +10051,7 @@ L386ce:
 		* $60,$b2 is 'bra.s l387dc', but it overlaps with data label.
 		bra.s	l387dc
 		*dc.b	$60
-		* XXX this bit is ed up
+		* XXX this bit is fucked up
 
 *L38829:
 *		dc.b	$b2,$0,$2,$2,$3,$4,$6,$7,$8
@@ -10959,7 +10959,7 @@ L3941a_Put3DGamedata2Obj2:
 		lea	L2af80_gamedata2,a5
 		bra.s	l39430
 
-* This label is bull but i'll leave it for the moment
+* This label is bullshit but i'll leave it for the moment
 L39426_PutGameData3DObj:
 		move.w	90(a6),d0
 		movea.l	L973c_game_data,a5
@@ -11188,7 +11188,7 @@ L39682:
 		adda.w	#$12,a0
 		bra.s	l396ac
 
-L39690_Initframe:
+L39690_InitFuckframe:
 		moveq	#0,d1
 		movea.l	a4,a0
 		adda.w	#$12,a0
@@ -12062,7 +12062,7 @@ L3a00c_InitNormalFlags:
 		move.w	#$8080,d0
 		lea	4(a7),a0
 		move.w	8(a5),d1
-		* it seems no  cares about this except for
+		* it seems no cunt cares about this except for
 		* gas giant ring colours
 		move.l	-98(a6),(a0)+
 		lsr.w	#1,d1
@@ -12950,7 +12950,7 @@ L3a68c:
 		cmp.w	#$9,d2
 		bgt.w	l3aa9e
 
-* this label is probably e.
+* this label is probably shite.
 L3a93c_project_real_circle:
 		move.l	a0,vertex_a0
 		cmp.w	#$140,d0
@@ -14192,7 +14192,7 @@ L3b5c6:
 		move.w	L3b5ee(pc,d7.w),d7
 		jmp	L3b5ee(pc,d7.w)
 
-* complex object turd   
+* complex object turd fuck fuck cunt
 L3b5ee:
 		dc.w	L3b5fc_ComplexStraight-L3b5ee
 		dc.w	L3b8e2_ComplexBezierBit-L3b5ee
@@ -14990,7 +14990,7 @@ cylinder_rad1:	ds.w	1
 cylinder_rad2:	ds.w	1
 
 * Draws spaceship wheels, imp courier engine bits, radar dish shaft, ...
-* is  buggy in the original implementation (on the imp courier anyway)
+* is fucking buggy in the original implementation (on the imp courier anyway)
 L3be7e_ProjectCylinder_1:
 		movem.w	(a5)+,d7/a0-3
 		lsr.w	#4,d6
@@ -15086,7 +15086,7 @@ L3be90_ProjectCylinder_2:
 		movem.l	4(a1),d0-2
 		lea	-104(a7),a7
 		move.w	d6,cylinder_rad1
-		bsr.w	L38150_TubeEnd
+		bsr.w	L38150_TubeEndShit
 		beq.w	l3c362
 		moveq	#0,d6
 		move.b	-144(a6),d6
@@ -15096,7 +15096,7 @@ L3be90_ProjectCylinder_2:
 		movem.l	4(a0),d0-2
 		lea	-104(a7),a7
 		move.w	d6,cylinder_rad2
-		bsr.w	L38150_TubeEnd
+		bsr.w	L38150_TubeEndShit
 		beq.w	l3c35e
 		movem.l	4(a0),d0-2
 		movem.l	4(a1),d3-5
@@ -16330,7 +16330,7 @@ L3cd7e:
 		bra.w	L3cce2
 	l3cd84:	move.w	(a5),208(a3)
 		beq.s	l3cd8e_AbortPlanetDraw
-		bsr.w	L3da2e_AtmosphereColN
+		bsr.w	L3da2e_AtmosphereColNShit
 	l3cd8e_AbortPlanetDraw:
 		movea.l	194(a3),a5
 		adda.w	32(a3),a5
@@ -17002,7 +17002,7 @@ L3d3f0:
 		add.w	d3,d3
 	l3d44e:	move.w	d3,174(a3)
 
-* note - i don't really understand a damn thing. i'm a total  charlatan
+* note - i don't really understand a damn thing. i'm a total fucking charlatan
 L3d452_PlanetFeatureLoop:
 		* smelly coords of planet feature from model
 		move.b	(a5)+,d3
@@ -17150,10 +17150,10 @@ L3d518:
 		move.l	a1,d0
 		add.l	d0,L385c8_primitives_end
 		lea	214(a7),a7
-		bsr.w	_planet
+		bsr.w	fuck_planet
 		rts
 
-_planet:
+fuck_planet:
 
 		move.w	(a3),planet_col1
 
@@ -17443,7 +17443,7 @@ L3d6d0_PutPlanetCircle:
 		ble.w	l3da24
 		move.w	(a5)+,202(a3)
 		movem.w	d0-7,-(a7)
-		bsr.w	L3da2e_AtmosphereColN
+		bsr.w	L3da2e_AtmosphereColNShit
 		movem.w	(a7),d0-5
 		addi.w	#$a0,d0
 		subi.w	#$54,d1
@@ -17568,7 +17568,7 @@ L3d9ec:
 		bne.s	l3da26
 		bra.s	l3d9f8
 
-L3da2e_AtmosphereColN:
+L3da2e_AtmosphereColNShit:
 		movem.w	-198(a6),d0-2
 		movem.w	122(a3),d3-5
 		muls	d3,d0
@@ -18295,7 +18295,7 @@ L3e158_SetupNProjectObj2:
 		asr.w	d4,d2
 		asr.w	d4,d3
 		movem.w	d1-3,-50(a6)
-	l3e19a:	bsr.w	L39690_Initframe
+	l3e19a:	bsr.w	L39690_InitFuckframe
 		bsr.w	L3a00c_InitNormalFlags
 		move.b	#$2,-152(a6)
 		* this appears not to be necessary, since a5 aint been groped
@@ -26857,7 +26857,7 @@ L44ab4:
 
 L44ace:
 		add.w	d0,d0
-		movea.l	L9734__game_objs,a0
+		movea.l	L9734_fucking_game_objs,a0
 		adda.w	L44b02(pc,d0.w),a0
 		rts
 
@@ -28426,7 +28426,7 @@ L45e5e:
 		jsr	486(a5)
 		movem.l	16282(a6),d0-5
 		moveq	#1,d7
-* XXX . another code overlapping data label. need assembler support.
+* XXX fuck. another code overlapping data label. need assembler support.
 		bra.w	L4600a
 		*dc.b	$60,$0
 L45f02:
@@ -29557,7 +29557,7 @@ L46cb4:
 	l46e8e:	clr.w	60(a0)
 		move.w	632(a6),662(a6)
 		move.l	(a7),d0
-		*  the skull of this e XXX
+		* fuck the skull of this shite XXX
 		jsr	L46ea4(pc,a3.w)
 		moveq	#-1,d2
 	l46ea0:	movem.l	(a7)+,d0-1/d3/a1
@@ -48191,7 +48191,7 @@ L724a4_mod10_fn4:
 		bsr.w	L72a2e_NameToUpperCase
 		rts
 
-	* 'load last saved '
+	* 'load last saved shit'
 	l72548:	
 		* XXX comment this out!
 		*jmp	debug_loader
@@ -55047,7 +55047,7 @@ L786c2:
 		jmp	A5_FmtDrawStrShadowed(a5)
 
 * This sets some palette for the shipyard ship viewing screen,
-* and the lighting vector, and other 
+* and the lighting vector, and other shit
 L786e2:
 		move.w	d0,11778(a6)
 		jsr	A5_GetGameDataObj(a5)
@@ -62332,7 +62332,7 @@ L8416c:
 		lea	-506(a7),a7
 		movea.l	a7,a3
 		movem.l	a3-6,-(a7)
-		* rotate ing systems view with right-button mouse movement
+		* rotate cunting systems view with right-button mouse movement
 		jsr	A5_GetMouseCtrl(a5)
 		asl.w	#7,d0
 		asl.w	#7,d1

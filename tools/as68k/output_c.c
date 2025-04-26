@@ -9,7 +9,7 @@
 #include "as68k.h"
 #include "output.h"
 
-// #define DUMP_LOADS_OF_CRAP
+//#define DUMP_LOADS_OF_CRAP
 
 static op_t pending;
 static char pending_func_name[LAB_LEN];
@@ -20,7 +20,7 @@ static enum M68K_OPS next_op_type;
 static int gen_mode;
 static int return_target;
 
-// which flags an M68K_OP thingy may set
+/* which flags an M68K_OP thingy may set */
 #define fN	(1<<0)
 #define fZ	(1<<1)
 #define fV	(1<<2)
@@ -29,10 +29,10 @@ static int return_target;
 #define fNZVCX	(fN | fZ | fV | fC | fX)
 #define fNZVC	(fN | fZ | fV | fC)
 #define _fSafe	0
-// _fSafe are ones i haven't got round to doing yet
+/* _fSafe are ones i haven't got round to doing yet. */
 
 static int sets_flags[OP_MAX+1] = {
-	_fSafe,	// OP_NONE
+	_fSafe,	/* OP_NONE */
 	0, // OP_JMP
 	fZ, // OP_BCHG
 	fZ, // OP_BCLR
@@ -87,20 +87,21 @@ static int sets_flags[OP_MAX+1] = {
 	_fSafe, // OP_MAX.....
 };
 
-// does the flag need to be set? if the next instruction will set the flag then no.
+/* does the flag need to be set? if the next instruction will
+ * set the flag then no. */
 #define ifZ	if(!(sets_flags[next_op_type] & fZ))
 #define ifN	if(!(sets_flags[next_op_type] & fN))
 #define ifV	if(!(sets_flags[next_op_type] & fV))
 #define ifC	if(!(sets_flags[next_op_type] & fC))
-// #define ifCX	if((!(sets_flags[next_op_type] & fC)) && (!(sets_flags[next_op_type] & fX)))
-// #define ifX	if(!(sets_flags[next_op_type] & fX))
+//#define ifCX	if((!(sets_flags[next_op_type] & fC)) && (!(sets_flags[next_op_type] & fX)))
+//#define ifX	if(!(sets_flags[next_op_type] & fX))
 #define ifVoN	if((!(sets_flags[next_op_type] & fV)) || (!(sets_flags[next_op_type] & fN)))
 
 FILE *f_temp;
 FILE *c_out;
-FILE *c_out2; // writing functions here
+FILE *c_out2; /* writing functions here */
 
-// useless stats
+/* useless stats */
 static int num_funcs;
 
 #define SWAP_COUT	{ f_temp = c_out; c_out = c_out2; c_out2 = f_temp; }
@@ -125,7 +126,7 @@ static void cln (const char *format, ...)
 	va_end (argptr);
 	fputc ('\n', c_out);
 }
-// C code generation shit
+/* C code generation shit */
 const char *c_usizes[] = { "u8", "u16", "u32" };
 const char *c_ssizes[] = { "s8", "s16", "s32" };
 const char *mem_read_funcs[] = { "rdbyte", "rdword", "rdlong" };
@@ -146,7 +147,7 @@ void c_addr_label (int labelled)
 	cln ("	line_no = %d;", line_no);
 #ifdef DUMP_LOADS_OF_CRAP
 	cln ("	DumpRegsChanged ();");
-#endif
+#endif /* DUMP_LOADS_OF_CRAP */
 	cln ("#endif");
 }
 
@@ -177,13 +178,13 @@ void c_begin (const char *src_filename, const char *bin_filename)
 
 void c_end (const char *src_filename)
 {
-	// some more crap needs to be added to the top
+	/* some more crap needs to be added to the top */
 	char c, buf[128];
 	FILE *f;
 	struct Fixup *fix;
 	struct Label *lab;
 
-	// remember to do last pending instruction
+	/* remember to do last pending instruction */
 	next_op_type = OP_NONE;
 	if (pending.optype) {
 		gen_mode = GEN_BODY;
@@ -200,11 +201,10 @@ void c_end (const char *src_filename)
 		exit (-1);
 	}
 
-	// _host.c contains much necessary boilerplate code. include it
-	// cout ("#include \"_host.c\"\n");
+	/* _host.c contains much necessary boilerplate code. include it */
 	cout ("#include \"host.c\"\n");
 	
-	// call prototype turds
+	/* call prototype turds */
 	cout ("#ifdef PART1\n");
 	fix = fix_first;
 	for (; fix != NULL; fix = fix->next) {
@@ -214,20 +214,20 @@ void c_end (const char *src_filename)
 		}
 	}
 	cout ("#endif /* PART1 */\n");
-	// address 'fixups'
+	/* address 'fixups' */
 	fix = fix_first;
 	for (; fix != NULL; fix = fix->next) {
 		if (fix->size != C_ADDR) continue;
 
 		lab = get_label (fix->label);
 		if (!lab) {
-			// ignore. let pass2 throw the error
+			/* ignore. let pass2 throw the error. */
 			continue;
 		}
 		cout ("#define __D%s (0x%x)\n", lab->name, lab->val+BASE);
 	}
 
-	// the code we made
+	/* the code we made */
 	snprintf (buf, sizeof (buf), ".%s.fn.c", src_filename);
 	if ((f = fopen (buf, "r"))==NULL) {
 		fprintf (stderr, "Error: Cannot open %s for writing.\n", buf);
@@ -249,7 +249,7 @@ void c_end (const char *src_filename)
 	fclose (f);
 	remove (buf);
 
-	// and then computed jump table
+	/* and then computed jump table */
 	cln ("goto end_;");
 	cout ("\t\tdefault: \n");
 	cln ("#ifdef M68K_DEBUG");
@@ -267,7 +267,7 @@ void c_end (const char *src_filename)
 	cln ("		if (!--exceptions_pending_nums[i]) {");
 	cln ("			exceptions_pending ^= 1<<i;");
 	cln ("		}");
-	// save flags
+	/* save flags */
 	cln ("		bN=N; bnZ=nZ; bV=V; bC=C; bX=X;");
 	cln ("		goto jumptable;");
 	cln ("	}");
@@ -297,9 +297,9 @@ static void c_postea (ea_t *ea)
 	if ((ea->reg == 15) && (inc == 1)) inc = 2;
 	
 	switch (ea->mode) {
-		// areg postinc
+		/* areg postinc */
 		case 3: cln ("Regs[%d]._s32 += %d;", ea->reg, inc); break;
-		// areg predec
+		/* areg predec */
 		case 4: cln ("Regs[%d]._s32 -= %d;", ea->reg, inc); break;
 		default: break;
 	}
@@ -308,34 +308,34 @@ static void c_ea_get_address (ea_t *ea, char *buf)
 {
 	int inc;
 	switch (ea->mode) {
-		// dreg, areg
+		/* dreg, areg */
 		case 0: case 1: assert (0);
-		// areg indirect, postinc
+		/* areg indirect, postinc */
 		case 2: case 3: 
 			sprintf (buf, "(Regs[%d]._s32)", ea->reg); break;
-		// areg predec
+		/* areg predec */
 		case 4: 
 			inc = 1<<ea->op_size;
-			// stack pointer always by 2
+			/* stack pointer always by 2 */
 			if ((ea->reg == 15) && (inc == 1)) inc = 2;
 			
 			sprintf (buf, "(Regs[%d]._s32-%d)", ea->reg, inc);
 			break;
-		// areg offset
+		/* areg offset */
 		case 5:
 			sprintf (buf, "(Regs[%d]._s32%+d)", ea->reg, ea->imm.val);
 			break;
-		// areg offset + reg
+		/* areg offset + reg */
 		case 6:
 			sprintf (buf, "(Regs[%d]._s32+((%s)Regs[%d]._s32)%+d)", ea->reg, (ea->ext._.size ? "s32" : "s16"), ea->ext._.reg + (ea->ext._.d_or_a ? 8 : 0), ea->ext._.displacement);
 			break;
-		// yes
+		/* yes */
 		case 7:
-			// $xxx.w
+			/* $xxx.w */
 			if (ea->reg == 0) {
 				sprintf (buf, "(%d)", ea->imm.val);
 			}
-			// $xxx.l
+			/* $xxx.l */
 			else if (ea->reg == 1) {
 				if (ea->imm.has_label) {
 					sprintf (buf, "(__D%s)", ea->imm.label);
@@ -343,18 +343,18 @@ static void c_ea_get_address (ea_t *ea, char *buf)
 					sprintf (buf, "(%d)", ea->imm.val);
 				}
 			}
-			// immediate
+			/* immediate */
 			else if (ea->reg == 4) {
 				assert (0);
 			}
-			// PC + offset
+			/* PC + offset */
 			else if (ea->reg == 2) {
 				if (ea->imm.has_label)
 					sprintf (buf, "__D%s", ea->imm.label);
 				else
 					error ("Absolute value not allowed.");
 			}
-			// PC + INDEX + OFFSET
+			/* PC + INDEX + OFFSET */
 			else if (ea->reg == 3) {
 				if (!ea->imm.has_label) error ("Absolute value not allowed.");
 				sprintf (buf, "(__D%s + Regs[%d]._%s)",
@@ -371,42 +371,42 @@ static void c_readea (ea_t *ea, char *buf)
 {
 	int inc;
 	switch (ea->mode) {
-		// dreg, areg
+		/* dreg, areg */
 		case 0:
 		case 1:
 			sprintf (buf, "Regs[%d]._%s", ea->reg, c_ssizes[ea->op_size]);
 			break;
-		// areg indirect
+		/* areg indirect */
 		case 2:
 			sprintf (buf, "%s(Regs[%d]._s32)", mem_read_funcs[ea->op_size], ea->reg);
 			break;
-		// areg postinc
+		/* areg postinc */
 		case 3:
 			sprintf (buf, "%s(Regs[%d]._s32)", mem_read_funcs[ea->op_size], ea->reg);
 			break;
-		// areg predec
+		/* areg predec */
 		case 4:
 			inc = 1<<ea->op_size;
-			// stack pointer always by 2
+			/* stack pointer always by 2 */
 			if ((ea->reg == 15) && (inc == 1)) inc = 2;
 			
 			sprintf (buf, "%s(Regs[%d]._s32-%d)", mem_read_funcs[ea->op_size], ea->reg, inc);
 			break;
-		// areg offset
+		/* areg offset */
 		case 5:
 			sprintf (buf, "%s(Regs[%d]._s32%+d)", mem_read_funcs[ea->op_size], ea->reg, ea->imm.val);
 			break;
-		// areg offset + reg
+		/* areg offset + reg */
 		case 6:
 			sprintf (buf, "%s(Regs[%d]._s32+((%s)Regs[%d]._s32)%+d)", mem_read_funcs[ea->op_size], ea->reg, (ea->ext._.size ? "s32" : "s16"), ea->ext._.reg + (ea->ext._.d_or_a ? 8 : 0), ea->ext._.displacement);
 			break;
-		// yes
+		/* yes */
 		case 7:
-			// $xxx.w
+			/* $xxx.w */
 			if (ea->reg == 0) {
 				sprintf (buf, "%s(%d)", mem_read_funcs[ea->op_size], ea->imm.val);
 			}
-			// $xxx.l
+			/* $xxx.l */
 			else if (ea->reg == 1) {
 				if (ea->imm.has_label) {
 					sprintf (buf, "%s(__D%s)", mem_read_funcs[ea->op_size], ea->imm.label);
@@ -414,7 +414,7 @@ static void c_readea (ea_t *ea, char *buf)
 					sprintf (buf, "%s(%d)", mem_read_funcs[ea->op_size], ea->imm.val);
 				}
 			}
-			// immediate
+			/* immediate */
 			else if (ea->reg == 4) {
 				if (ea->imm.has_label) {
 					sprintf (buf, "__D%s", ea->imm.label);
@@ -422,14 +422,14 @@ static void c_readea (ea_t *ea, char *buf)
 					sprintf (buf, "%d", ea->imm.val);
 				}
 			}
-			// PC + offset
+			/* PC + offset */
 			else if (ea->reg == 2) {
 				if (ea->imm.has_label)
 					sprintf (buf, "%s(__D%s)", mem_read_funcs[ea->op_size], ea->imm.label);
 				else
 					error ("Absolute value not allowed.");
 			}
-			// PC + INDEX + OFFSET
+			/* PC + INDEX + OFFSET */
 			else if (ea->reg == 3) {
 				if (!ea->imm.has_label) error ("Absolute value not allowed.");
 				sprintf (buf, "%s(__D%s + Regs[%d]._%s)",
@@ -877,7 +877,7 @@ void c_func_divu (ea_t *ea, int reg)
 	cln ("	assert (src != 0);");
 	cln ("} else {");
 	cln ("	u32 newv = (u32)dest / (u32)(u16)src;");
-	cln ("  u32 rem = (u32)dest %% (u32)(u16)src;");
+	cln ("	u32 rem = (u32)dest %% (u32)(u16)src;");
 	cln ("	if (newv > 0xffff) {");
 	ifV { cln ("		V = 1;"); }
 	ifN { cln ("		N = 1;"); }
@@ -907,7 +907,7 @@ void c_func_divs (ea_t *ea, int reg)
 	cln ("	assert (src != 0);");
 	cln ("} else {");
 	cln ("	s32 newv = (s32)dest / (s32)(s16)src;");
-	cln ("  u16 rem = (s32)dest %% (s32)(s16)src;");
+	cln ("	u16 rem = (s32)dest %% (s32)(s16)src;");
 	cln ("	if ((newv & 0xffff8000) != 0 && (newv & 0xffff8000) != 0xffff8000) {");
 	ifV { cln ("		V = 1;"); }
 	ifN { cln ("		N = 1;"); }
@@ -1942,4 +1942,3 @@ void c_push_op_basic (enum M68K_OPS type)
 {
 	c_push_op2 (type, NULL, NULL, 0, 0);
 }
-
