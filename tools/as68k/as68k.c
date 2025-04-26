@@ -566,7 +566,7 @@ mess:
 		}
 		
 		if (*pos == '-') {
-			/* range of fucking registers */
+			/* range of registers */
 			pos++;
 			if (sscanf (pos, "%d", &hi) != 1) goto err;
 			pos++;
@@ -1023,7 +1023,7 @@ int asm_pass1 (const char *bin_filename)
 			pos += 4;
 			check ('.');
 			size = get_size (pos[0]);
-			if (size == BYTE) error ("Crap size for adda.");
+			if (size == BYTE) error ("Vad size for adda.");
 			pos++;
 			check_whitespace();
 			pos = get_ea (pos, &ea, size, F_ALL);
@@ -1525,7 +1525,7 @@ blork:
 				if (Bcc_str [i] == NULL) continue;
 				if (strncmp (&pos[1], Bcc_str[i], 2)==0) break;
 			}
-			if (i==16) goto fuckit;
+			if (i==16) goto justjumptoit;
 			pos += 3;
 			check ('.');
 			size = pos[0];
@@ -1559,7 +1559,7 @@ blork:
 				if (strncmp (lab1, "ra", 2)==0) {
 					i = 1;
 				} else {
-					goto fuckit;
+					goto justjumptoit;
 				}
 			}
 			while (isalpha (*pos)) pos++;
@@ -1581,7 +1581,7 @@ blork:
 			}
 			continue;
 		}
-fuckit:
+justjumptoit:
 		/* CLR */
 		if (strncmp (pos, "clr", 3) == 0) {
 			pos += 3;
@@ -2135,7 +2135,7 @@ is_movea:
 			for (i=0; i<16; i++) {
 				if (strncmp (lab1, DBcc_str[i], 2)==0) break;
 			}
-			if (i==16) goto fuckit2;
+			if (i==16) goto justjumptoit2;
 			while (isalpha (*pos)) pos++;
 			check_whitespace();
 			pos = get_ea (pos, &ea, BYTE, F_NOIMM_NOPC_NOAREG);
@@ -2152,7 +2152,7 @@ is_movea:
 			}
 			continue;
 		}
-fuckit2:
+justjumptoit2:
 		error ("Unknown opcode %s.", pos);
 	}
 	/* write text section length */

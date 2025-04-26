@@ -9,7 +9,7 @@
 #include "as68k.h"
 #include "output.h"
 
-//#define DUMP_LOADS_OF_CRAP
+//#define DUMP_LOADS_OF_STUFF
 
 static op_t pending;
 static char pending_func_name[LAB_LEN];
@@ -126,7 +126,7 @@ static void cln (const char *format, ...)
 	va_end (argptr);
 	fputc ('\n', c_out);
 }
-/* C code generation shit */
+/* C code generation stuff */
 const char *c_usizes[] = { "u8", "u16", "u32" };
 const char *c_ssizes[] = { "s8", "s16", "s32" };
 const char *mem_read_funcs[] = { "rdbyte", "rdword", "rdlong" };
@@ -145,9 +145,9 @@ void c_addr_label (int labelled)
 	}
 	cln ("#ifdef M68K_DEBUG");
 	cln ("	line_no = %d;", line_no);
-#ifdef DUMP_LOADS_OF_CRAP
+#ifdef DUMP_LOADS_OF_STUFF
 	cln ("	DumpRegsChanged ();");
-#endif /* DUMP_LOADS_OF_CRAP */
+#endif /* DUMP_LOADS_OF_STUFF */
 	cln ("#endif");
 }
 
@@ -178,7 +178,7 @@ void c_begin (const char *src_filename, const char *bin_filename)
 
 void c_end (const char *src_filename)
 {
-	/* some more crap needs to be added to the top */
+	/* some more stuff needs to be added to the top */
 	char c, buf[128];
 	FILE *f;
 	struct Fixup *fix;

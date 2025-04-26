@@ -322,7 +322,7 @@ void dict_remove (struct Dict *tree, const char *key)
 	iter = rem_pos;
 	assert (iter != to_remove);
 	/* AVL rotate if required */
-	/* Go back through parents seeing if some cunt is fucked */
+	/* Go back through parents seeing if some not so nice people are buggered */
 	while (iter) {
 		switch (rem_dir) {
 			case LEFT: side = -1; break;
@@ -425,7 +425,7 @@ int dict_set (struct Dict *tree, const char *key, void *obj)
 	node->parent = parent;
 	
 	/* AVL rotate if required */
-	/* Go back through parents seeing if some cunt is fucked */
+	/* Go back through parents seeing if some not so nice people are buggered */
 	while (parent) {
 		if (parent->child[LEFT] == node) {
 			side = -1;
@@ -451,7 +451,7 @@ int dict_set (struct Dict *tree, const char *key, void *obj)
 
 #ifdef DEBUG
 /*
- * Asserts if the tree's balance is fucked in some way.
+ * Asserts if the tree's balance is bugged in some way.
  */
 static int node_isbalanced (struct Node *node)
 {

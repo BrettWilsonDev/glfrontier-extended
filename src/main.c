@@ -18,7 +18,6 @@
 #include "main.h"
 #include "audio.h"
 #include "../m68000.h"
-// #include "m68000.h"
 #include "hostcall.h"
 #include "input.h"
 #include "keymap.h"
@@ -257,6 +256,7 @@ int main(int argc, char *argv[])
   if (bUseFullscreen)
     Screen_ToggleFullScreen();
 
+  // acts as a game loop of sorts 20ms works out to 50 fps 
   SDL_AddTimer(20, &vbl_callback, NULL);
 
   /* Run emulation */

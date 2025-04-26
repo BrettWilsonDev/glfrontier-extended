@@ -5,7 +5,7 @@ project(as68k C)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -Wall")
 
-# List your source files (replace .o with .c assuming you have the source files)
+# List your source files
 set(SOURCES
     output.c
     output_c.c

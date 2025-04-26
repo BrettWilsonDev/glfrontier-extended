@@ -25,9 +25,8 @@ Required:
 
 ## TODO
 
-* Fix SDL1 to SDL2 input address mismatch or bind missing inputs manually
+* Fix shortcuts
 * Fix OpenGL rendering
 * Fix music and sound
-* Rewrite parts of the emulator to fix Speed up bug
 * Make other compilers work and get rid of OS-specific headers
 * Fix Web build (if possible)

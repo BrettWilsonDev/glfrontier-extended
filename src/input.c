@@ -5,7 +5,6 @@
 #include "main.h"
 #include "input.h"
 #include "../m68000.h"
-// #include "m68000.h"
 #include "shortcut.h"
 #include "screen.h"
 
@@ -87,13 +86,10 @@ static void do_mouse_grab()
 	/* grab mouse on right-button hold for correct controls */
 	if (input.cur_mousebut_state & 0x1)
 	{
-		// SDL_WM_GrabInput (SDL_GRAB_ON);
-		// SDL_WM_GrabInput (SDL_TRUE);
 		SDL_SetRelativeMouseMode(SDL_TRUE);
 	}
 	else
 	{
-		// SDL_WM_GrabInput (SDL_FALSE);
 		SDL_SetRelativeMouseMode(SDL_FALSE);
 	}
 }

@@ -565,7 +565,7 @@ static void draw_control_panel()
 
 		for (x = 0; x < 320; x++)
 		{
-			/* in gl mode the ui texture has transparent crap where no  is */
+			/* in gl mode the ui texture has transparent stuff where no  is */
 			if ((*(scr)) == 255)
 			{
 				scr++;
@@ -1297,7 +1297,7 @@ void Nu_DrawComplexBezier(void **data)
 }
 
 /* For engines and industry chimney flares.
- * This is a bit crap, as you will see by panning around the effect. */
+ * This is a bit stuff, as you will see by panning around the effect. */
 void Nu_PutTeardrop()
 {
 	if (use_renderer == R_OLD)
@@ -2078,7 +2078,7 @@ static void Nu_DrawPrimitive(void *data)
  * znode_start is the head of a btree of znodes, each with a linked list
  * of GL display lists to draw (in list order).
  *
- * Draw this crap starting from biggest value znodes.
+ * Draw this stuff starting from biggest value znodes.
  */
 static void draw_3dview(struct ZNode *node)
 {

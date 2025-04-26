@@ -14,7 +14,7 @@
  * 	abcd, andi to ccr, andi to sr, bkpt, chk, cmpm, eori to ccr, eori to sr,
  * 	move to/from ccr, move to/from sr, move usp, movec, movep, moves, nbcd,
  * 	ori to ccr, ori to sr, reset, rtd, rtr, sbcd, stop, tas, trap, trapv
- * These are mostly a load of crap.
+ * These are mostly a load of stuff.
  */
 
 #define COMPILE_C	0

@@ -8,13 +8,6 @@
 // typedef unsigned int p68K;
 typedef uint32_t p68K;
 
-// typedef unsigned int u32;
-// typedef unsigned short u16;
-// typedef unsigned char u8;
-// typedef signed int s32;
-// typedef signed short s16;
-// typedef signed char s8;
-
 typedef uint32_t u32;
 typedef uint16_t u16;
 typedef uint8_t u8;

@@ -21,7 +21,7 @@ static int return_target;
 
 /* enable bounds checking and debug info in the generated turd */
 #define GEN_DEBUG
-//#define DUMP_LOADS_OF_CRAP
+//#define DUMP_LOADS_OF_STUFF
 
 /* which flags an M68K_OP thingy may set */
 #define fZ	(1<<0)
@@ -191,9 +191,9 @@ void i386_addr_label (int labelled)
 #ifdef GEN_DEBUG
 	set_line (line_no);
 
-#ifdef DUMP_LOADS_OF_CRAP
+#ifdef DUMP_LOADS_OF_STUFF
 	strcat (cur_labels, "	call DumpRegsChanged\n");
-#endif /* DUMP_LOADS_OF_CRAP */
+#endif /* DUMP_LOADS_OF_STUFF */
 #endif /* GEN_DEBUG */
 }
 
@@ -516,7 +516,7 @@ static void do_pending ();
 
 void i386_end (const char *src_filename)
 {
-	/* some more crap needs to be added to the top */
+	/* some more stuff needs to be added to the top */
 	int prev, i;
 	char c, buf[128];
 	FILE *f;
@@ -703,7 +703,7 @@ static int is_immediate (ea_t *ea)
 	return ((ea->mode == 7) && (ea->reg == 4));
 }
 
-/* only x86 regs used in effective address shit. */
+/* only x86 regs used in effective address stuff. */
 enum X86REG {
 	EAX, EBX, ECX, EDX, ESI, EDI, X86REG_MAX
 };
@@ -853,14 +853,14 @@ static enum X86REG xalloc_reg (int size, int x86reg_preferred)
 static enum X86REG xload_reg2 (int m68k_reg, int size, int preferred_x86_reg, int flags, const char **conv)
 {
 	int i;
-	//static int crap;
+	//static int stuff;
 	/* is it already loaded? */
 	for (i=0; i<X86REG_MAX; i++) {
 		if (i386_regalloc[i].m68k_reg != m68k_reg) continue;
 
 		if ((size == BYTE) && (i >= ESI)) {
 			/* can't operate on byte values in the esi/edi regs */
-			//printf ("stupid esi/edi shit (no worries mate (n %d, line %d)\n", crap++, line_no);
+			//printf ("stupid esi/edi stuff (no worries mate (n %d, line %d)\n", stuff++, line_no);
 			
 			xflush_reg (i);
 		} else {
@@ -888,8 +888,7 @@ static enum X86REG xload_reg (int m68k_reg, int size, int preferred_x86_reg)
 }
 
 enum RegConversion { XCONV_NONE, XCONV_SWL, XCONV_ZWL };
-/* returns a temporary reg alloc copy of an m68k register, that you can do
- * what the fuck you like with */
+/* returns a temporary reg alloc copy of an m68k register, that you can do */
 #define xcopy_reg(m68k_reg,size,preferred_x86_reg) \
 	xcopy_reg2 (m68k_reg, size, preferred_x86_reg, 0)
 static enum X86REG xcopy_reg2 (int m68k_reg, int size, int preferred_x86_reg, enum RegConversion conversion)
@@ -1087,7 +1086,7 @@ static void do_bswap (enum X86REG val, int size)
  * a pipeline stall occurs, and then returns.
  * First call should be made with advance_stage == 0, subsequent
  * calls with advance_stage==1.
- * And then put shit inbetween.
+ * And then put stuff in between.
  *
  * flag XQUICK_REGS means that for "reading" immediate values,
  * and XQUICK_REGS values in registers, nothing is done and instead ea->identifier
@@ -1387,7 +1386,7 @@ static void x_loadea (ea_t *ea)
 			if (ea->ext._.size) {
 				reg2 = xload_reg (ea->ext._.reg + (ea->ext._.d_or_a ? 8 : 0), LONG, -1);
 			} else {
-				/* need fucking 16-bit chunk of variable sign extended to 32... */
+				/* need a 16-bit chunk of variable sign extended to 32... */
 				reg3 = xload_reg (ea->ext._.reg + (ea->ext._.d_or_a ? 8 : 0), LONG, -1);
 				reg2 = xalloc_reg (LONG, -1);
 				xln ("movswl	%s,%s", xreg (reg3, WORD), xreg (reg2, LONG));
@@ -1432,7 +1431,7 @@ static void x_loadea (ea_t *ea)
 				if (ea->ext._.size) {
 					reg2 = xload_reg (ea->ext._.reg + (ea->ext._.d_or_a ? 8 : 0), LONG, -1);
 				} else {
-					/* need fucking 16-bit chunk of variable sign extended to 32... */
+					/* need a 16-bit chunk of variable sign extended to 32... */
 					reg3 = xload_reg (ea->ext._.reg + (ea->ext._.d_or_a ? 8 : 0), LONG, -1);
 					reg2 = xalloc_reg (LONG, -1);
 					xln ("movswl	%s,%s", xreg (reg3, WORD), xreg (reg2, LONG));
@@ -1523,7 +1522,7 @@ static void x_loadval (ea_t *ea, int preferred_reg, int flags)
 			if (ea->ext._.size) {
 				reg2 = xload_reg (ea->ext._.reg + (ea->ext._.d_or_a ? 8 : 0), LONG, -1);
 			} else {
-				/* need fucking 16-bit chunk of variable sign extended to 32... */
+				/* need a 16-bit chunk of variable sign extended to 32... */
 				reg3 = xload_reg (ea->ext._.reg + (ea->ext._.d_or_a ? 8 : 0), LONG, -1);
 				reg2 = xalloc_reg (LONG, -1);
 				xln ("movswl	%s,%s", xreg (reg3, WORD), xreg (reg2, LONG));
@@ -1597,7 +1596,7 @@ static void x_loadval (ea_t *ea, int preferred_reg, int flags)
 				if (ea->ext._.size) {
 					reg2 = xload_reg (ea->ext._.reg + (ea->ext._.d_or_a ? 8 : 0), LONG, -1);
 				} else {
-					/* need fucking 16-bit chunk of variable sign extended to 32... */
+					/* need a 16-bit chunk of variable sign extended to 32... */
 					reg3 = xload_reg (ea->ext._.reg + (ea->ext._.d_or_a ? 8 : 0), LONG, -1);
 					reg2 = xalloc_reg (LONG, -1);
 					xln ("movswl	%s,%s", xreg (reg3, WORD), xreg (reg2, LONG));
@@ -1672,7 +1671,7 @@ static void x_saveval (ea_t *ea, int size)
 			if (ea->ext._.size) {
 				reg2 = xload_reg (ea->ext._.reg + (ea->ext._.d_or_a ? 8 : 0), LONG, -1);
 			} else {
-				/* need fucking 16-bit chunk of variable sign extended to 32... */
+				/* need a 16-bit chunk of variable sign extended to 32... */
 				reg3 = xload_reg (ea->ext._.reg + (ea->ext._.d_or_a ? 8 : 0), LONG, -1);
 				reg2 = xalloc_reg (LONG, -1);
 				xln ("movswl	%s,%s", xreg (reg3, WORD), xreg (reg2, LONG));
@@ -1718,7 +1717,7 @@ static void x_saveval (ea_t *ea, int size)
 				if (ea->ext._.size) {
 					reg2 = xload_reg (ea->ext._.reg + (ea->ext._.d_or_a ? 8 : 0), LONG, -1);
 				} else {
-					/* need fucking 16-bit chunk of variable sign extended to 32... */
+					/* need a 16-bit chunk of variable sign extended to 32... */
 					reg3 = xload_reg (ea->ext._.reg + (ea->ext._.d_or_a ? 8 : 0), LONG, -1);
 					reg2 = xalloc_reg (LONG, -1);
 					xln ("movswl	%s,%s", xreg (reg3, WORD), xreg (reg2, LONG));
@@ -2083,7 +2082,7 @@ void i386_func_logop (ea_t *src, ea_t *dest, int size, char op)
 void i386_func_not (ea_t *ea, int size)
 {
 	int flags = XQUICK_WRITEBACK;
-	/* mem to mem operations are crap */
+	/* mem to mem operations are stuff */
 	//ifZNVC {} else flags |= XQUICK_REGS;
 	
 	x_loadval (ea, -1, flags);
@@ -2108,7 +2107,7 @@ void i386_func_negx (ea_t *ea, int size)
 	xold_readea (ea, 0, 1);
 	xold_readea (ea, 0, 1);
 
-	// XXX this is crap. do without jumps (negx)
+	// XXX this is stuff. do without jumps (negx)
 	// then again, negx and subx caused so many problems
 	// and took so long to get right that who cares..
 	xln ("xorl	%%ebx,%%ebx");
@@ -2242,7 +2241,7 @@ void i386_func_divs (ea_t *ea, int reg)
 }
 
 /* src is the shift */
-/* these are such cunts */
+/* these are such not so nice people */
 void i386_func_asl (ea_t *src, ea_t *dest, int size)
 {
 	xflush_all ();
@@ -2303,7 +2302,7 @@ void i386_func_asl (ea_t *src, ea_t *dest, int size)
 		xln ("and%s	%s,%s", szmov[size], sreg (EBX), sreg (EDX));
 		xln ("cmp%s	%s,%s", szmov[size], sreg (ECX), sreg (EDX));
 		xln ("setnz	V");
-		/* ^^ huge amount of code for one fucking flag... */
+		/* ^^ huge amount of code for one flag... */
 	
 		xout ("3:\n");
 	}
@@ -2562,7 +2561,7 @@ void i386_func_asr (ea_t *src, ea_t *dest, int size)
 	//ifZNVC	xln ("test%s	%s,%s", szmov[size], sreg (EBX), sreg (EBX));
 	//ifZ	xln ("setz	Z");
 
-	/* Sign flag is crap with val=0 */
+	/* Sign flag is stuff with val=0 */
 	//ifNVC	xln ("sets	N");
 
 		xln ("jmp	3f");
@@ -2722,7 +2721,7 @@ void i386_func_subx (ea_t *src, ea_t *dest, int size)
 	xold_readea (src, 0, 1);
 	xold_readea (dest, 1, 1);
 
-	/* fucking X flag */
+	/* X flag */
 	ifNVCX {
 		xln ("mov%s	%s,%s", szmov[size], sreg (EAX), sreg (ECX));
 		xln ("mov%s	%s,%s", szmov[size], sreg (EBX), sreg (EDX));
@@ -2744,7 +2743,7 @@ void i386_func_subx (ea_t *src, ea_t *dest, int size)
 	}
 
 	ifNVCX {
-		/* fucking X flag */
+		/* X flag */
 		xln ("mov%s	%s,%s", szmov[size], sreg (EBX), sreg (EAX));
 		xln ("shr%s	$%d,%s", szmov[size], size2len[size]-1, sreg (EAX));
 		/* ecx=flgs, edx=flgo, eax=flgn */
@@ -2773,7 +2772,7 @@ void i386_func_addx (ea_t *src, ea_t *dest, int size)
 	xold_readea (src, 0, 1);
 	xold_readea (dest, 1, 1);
 
-	/* fucking X flag */
+	/* X flag */
 	ifNVCX {
 		xln ("mov%s	%s,%s", szmov[size], sreg (EAX), sreg (ECX));
 		xln ("mov%s	%s,%s", szmov[size], sreg (EBX), sreg (EDX));
@@ -2795,7 +2794,7 @@ void i386_func_addx (ea_t *src, ea_t *dest, int size)
 	}
 
 	ifNVCX {
-		/* fucking X flag */
+		/* X flag */
 		xln ("mov%s	%s,%s", szmov[size], sreg (EBX), sreg (EAX));
 		xln ("shr%s	$%d,%s", szmov[size], size2len[size]-1, sreg (EAX));
 		/* ecx=flgs, edx=flgo, eax=flgn */
@@ -3330,7 +3329,7 @@ static void output_op (op_t *op, op_t *next)
 	}
 
 /*	int i;
-	int fucked = 0;
+	int ducked = 0;
 	for (i=0; i<X86REG_MAX; i++) {
 		printf ("l%d X86-reg %d: contained 68k reg %d, age %d, dirty %d, locked %d\n",
 				line_no,
@@ -3338,10 +3337,10 @@ static void output_op (op_t *op, op_t *next)
 				i386_regalloc[i].age,
 				i386_regalloc[i].dirty,
 				i386_regalloc[i].locked);
-		if (i386_regalloc[i].locked) fucked = 1;
+		if (i386_regalloc[i].locked) ducked = 1;
 	}
 	printf ("\n");
-	assert (fucked == 0);*/
+	assert (ducked == 0);*/
 }
 
 static void do_pending ()
@@ -3352,10 +3351,10 @@ static void do_pending ()
 	pending_flush = cur_flush;
 	cur_flush = 0;
 
-#ifdef DUMP_LOADS_OF_CRAP
+#ifdef DUMP_LOADS_OF_STUFF
 	/* state must be consistent to print reg contents */
 	xflush_all ();
-#endif /* DUMP_LOADS_OF_CRAP */
+#endif /* DUMP_LOADS_OF_stuff */
 	
 	if (pending_labels) {
 		rout (pending_labels);

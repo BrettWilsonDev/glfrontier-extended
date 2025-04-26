@@ -34,7 +34,7 @@ extern int len_main_palette;
 extern unsigned short MainPalette[256];
 extern unsigned short CtrlPalette[16];
 
-/* XXX this crap is only needed for the software renderer */
+/* XXX this stuff is only needed for the software renderer */
 /* Do not use directly - they are just locations in STRam */
 extern unsigned long logscreen, logscreen2, physcreen, physcreen2;
 /* Use these instead. They read the value */
