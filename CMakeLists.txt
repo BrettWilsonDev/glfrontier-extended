@@ -15,6 +15,7 @@ set(CMAKE_C_STANDARD 99)
 
 # library toggles
 option(USE_SDL2 "Use SDL2" ON)
+option(USE_PHYSFS "Use PHYSFS" ON)
 
 # build options
 option(BUILD_SDL_SHARED_LIB "Build SDL as a shared library" OFF)
@@ -148,6 +149,26 @@ if((USE_SDL2) AND (${PLATFORM} STREQUAL "Web"))
     include_directories(RECURSE build-em/_deps/sdl2_image-src/include)
 endif()
 
+##########################################################################################
+# Physfx Setup
+##########################################################################################
+
+if(USE_PHYSFS)
+    set(PHYSFS_STATIC_BUILD ON CACHE BOOL "Build shared library")
+    set(PHYSFS_BUILD_SHARED OFF CACHE BOOL "Build shared library")
+    set(PHYSFS_BUILD_TEST OFF CACHE BOOL "Build tests")
+
+    set(dep physfs)
+    add_git_dependency(
+        ${dep}
+        https://github.com/icculus/physfs.git
+        main
+    )
+
+    FetchContent_GetProperties(${dep})
+
+    list(APPEND LIBRARIES PhysFS::PhysFS-static)
+endif()
 
 ##########################################################################################
 # emulator setup
@@ -323,8 +344,8 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 # endif()
 
 # Ensure that hot-reload is enabled for VS
-# if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-#   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /ZI")
-#   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
-#   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
-# endif()
+if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /ZI")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
+endif()

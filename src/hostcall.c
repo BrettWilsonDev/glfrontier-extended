@@ -20,8 +20,8 @@
 #include <SDL_endian.h>
 
 #include <sys/stat.h>
-#include <dirent.h>
-#include <unistd.h>
+// #include <dirent.h>
+// #include <unistd.h>
 
 #include "main.h"
 #include "../host.h"
@@ -32,7 +32,7 @@
 #include "keymap.h"
 #include "shortcut.h"
 
-#include <stdint.h> 
+#include <stdint.h>
 
 /*
   GEMDOS error codes, See 'The Atari Compendium' D.3
@@ -858,16 +858,42 @@ static void Call_Fread()
 	}
 }
 
-#include <dirent.h>
-static DIR *poodir;
+// ======================================== physfs dirent replacement ========================================
+
+// used for save and load 
+
+#include <physfs.h>
 
 static char cur_dir[1024];
+static char **poo_files = NULL;
+static int poo_index = 0;
+static int physfs_inited = 0;
 
 static void Call_Fopendir()
 {
 	int p, i;
 	char name[64];
 
+	// Initialize PhysicsFS if needed
+	if (!physfs_inited)
+	{
+		if (!PHYSFS_init(NULL))
+		{
+			SetReg(REG_D0, -1);
+			return;
+		}
+
+		// Set the base directory to the current working directory
+		if (!PHYSFS_setWriteDir("."))
+		{
+			SetReg(REG_D0, -1);
+			return;
+		}
+
+		physfs_inited = 1;
+	}
+
+	// Get directory name from emulator
 	p = GetReg(REG_A2);
 	for (i = 0;; i++)
 	{
@@ -876,15 +902,47 @@ static void Call_Fopendir()
 			break;
 	}
 
-	strncpy(cur_dir, name, 1024);
-
-	poodir = opendir(name);
-	if (poodir)
+	// TODO move saves to document directory
+	// Create the save directory
+	char *dirName = name;
+	dirName++;
+	if (PHYSFS_mkdir(dirName) == 0)
 	{
-		struct dirent *dent;
-		/* skip '.' and '..' */
-		dent = readdir(poodir);
-		dent = readdir(poodir);
+		printf("failed to create directory: %s (%d)\n",
+			   PHYSFS_getLastError(), PHYSFS_getLastErrorCode());
+	}
+
+	strncpy(cur_dir, name, sizeof(cur_dir) - 1);
+	cur_dir[sizeof(cur_dir) - 1] = '\0';
+
+	// Free previous file list if exists
+	if (poo_files)
+	{
+		PHYSFS_freeList(poo_files);
+		poo_files = NULL;
+	}
+
+	// Mount the directory (important for PhysicsFS)
+	if (!PHYSFS_mount(cur_dir, "/", 1))
+	{
+		SetReg(REG_D0, -1);
+		return;
+	}
+
+	// Enumerate files
+	poo_files = PHYSFS_enumerateFiles("/");
+	poo_index = 0;
+
+	// Skip "." and ".." if they exist
+	if (poo_files)
+	{
+		while (poo_files[poo_index] &&
+			   (strcmp(poo_files[poo_index], ".") == 0 ||
+				strcmp(poo_files[poo_index], "..") == 0))
+		{
+			poo_index++;
+		}
+
 		SetReg(REG_D0, 0);
 	}
 	else
@@ -895,45 +953,75 @@ static void Call_Fopendir()
 
 static void Call_Fclosedir()
 {
-	closedir(poodir);
+	if (poo_files)
+	{
+		PHYSFS_freeList(poo_files);
+		poo_files = NULL;
+	}
+
+	// Unmount the directory if needed
+	PHYSFS_unmount(cur_dir);
 }
 
-/* make sure fe2.s is allocating enough space at a0... */
 #define MAX_FILENAME_LEN 14
 
 static void Call_Freaddir()
 {
-	int p, i, attribs, len;
+	int p, i, attribs = 0, len = 0;
 	char name[MAX_FILENAME_LEN];
-	/* filename into buffer (a0), attributes d2, len d1 */
-	char full_path_[1024];
-	struct stat _stat;
-	struct dirent *dent = readdir(poodir);
-	if (dent == NULL)
+	char full_virtual_path[1024];
+	char full_physical_path[1024];
+	PHYSFS_Stat _stat;
+	struct stat fs_stat;
+
+	if (!poo_files || !poo_files[poo_index])
 	{
 		SetReg(REG_D0, -1);
 		return;
 	}
-	strncpy(name, dent->d_name, MAX_FILENAME_LEN);
+
+	strncpy(name, poo_files[poo_index], MAX_FILENAME_LEN - 1);
 	name[MAX_FILENAME_LEN - 1] = '\0';
 
-	strncpy(full_path_, cur_dir, 1024);
-	strncat(full_path_, "/", 1024);
-	strncat(full_path_, dent->d_name, 1024);
-	stat(full_path_, &_stat);
+	// Try PhysicsFS stats first
+	snprintf(full_virtual_path, sizeof(full_virtual_path), "/%s", poo_files[poo_index]);
 
-	len = _stat.st_size;
-	attribs = (S_ISDIR(_stat.st_mode) ? 0x10 : 0);
+	if (PHYSFS_stat(full_virtual_path, &_stat))
+	{
+		len = (int)_stat.filesize;
+		attribs = (_stat.filetype == PHYSFS_FILETYPE_DIRECTORY) ? 0x10 : 0;
+	}
+	else
+	{
+		// Fall back to regular filesystem stats
+		snprintf(full_physical_path, sizeof(full_physical_path), "%s/%s", cur_dir, poo_files[poo_index]);
+
+		if (stat(full_physical_path, &fs_stat) == 0)
+		{
+			len = (int)fs_stat.st_size;
+			attribs = (S_ISDIR(fs_stat.st_mode) ? 0x10 : 0);
+		}
+		else
+		{
+			len = 0;
+			attribs = 0;
+		}
+	}
 
 	p = GetReg(REG_A0);
 	for (i = 0; i < MAX_FILENAME_LEN; i++)
 	{
 		STMemory_WriteByte(p++, name[i]);
 	}
+
 	SetReg(REG_D2, attribs);
 	SetReg(REG_D1, len);
 	SetReg(REG_D0, 0);
+
+	poo_index++;
 }
+
+// ==========================================================================================================
 
 static void not_available() {}
 
