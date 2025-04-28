@@ -14,13 +14,13 @@
 #include "audio.h"
 #include "../m68000.h"
 
-// #ifdef OGG_MUSIC
-// #undef OGG_MUSIC
-// #endif
+
+// #define OGG_MUSIC
 
 #ifdef OGG_MUSIC
-#include <vorbis/codec.h>
-#include <vorbis/vorbisfile.h>
+#define OGG_IMPL
+#define VORBIS_IMPL
+#include "minivorbis.h"
 #endif /* OGG_MUSIC */
 
 BOOL bDisableSound = FALSE;

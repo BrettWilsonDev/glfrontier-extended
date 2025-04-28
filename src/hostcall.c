@@ -860,7 +860,7 @@ static void Call_Fread()
 
 // ======================================== physfs dirent replacement ========================================
 
-// used for save and load 
+// used for save and load
 
 #include <physfs.h>
 
@@ -909,7 +909,7 @@ static void Call_Fopendir()
 	if (PHYSFS_mkdir(dirName) == 0)
 	{
 		printf("failed to create directory: %s (%d)\n",
-			   PHYSFS_getLastError(), PHYSFS_getLastErrorCode());
+			   PHYSFS_getLastErrorCode());
 	}
 
 	strncpy(cur_dir, name, sizeof(cur_dir) - 1);

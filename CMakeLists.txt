@@ -1,13 +1,10 @@
 cmake_minimum_required(VERSION 3.22)
 
 # Get project name from the folder name
-# get_filename_component(PROJECT_NAME ${CMAKE_CURRENT_LIST_DIR} NAME)
 set(PROJECT_NAME fe2)
 project(${PROJECT_NAME} C)
 
 set(CMAKE_C_STANDARD 99)
-
-# set(CMAKE_C_FLAGS "-m32") # must be 32 bit gcc
 
 ##########################################################################################
 # Configurable options
@@ -16,6 +13,7 @@ set(CMAKE_C_STANDARD 99)
 # library toggles
 option(USE_SDL2 "Use SDL2" ON)
 option(USE_PHYSFS "Use PHYSFS" ON)
+option(USE_MINIVORBIS "Use mini vorbis" ON)
 
 # build options
 option(BUILD_SDL_SHARED_LIB "Build SDL as a shared library" OFF)
@@ -171,6 +169,25 @@ if(USE_PHYSFS)
 endif()
 
 ##########################################################################################
+# mini Vorbis Setup
+##########################################################################################
+
+if(USE_MINIVORBIS)
+
+    set(dep minivorbis)
+    add_git_dependency(
+        ${dep}
+        https://github.com/edubart/minivorbis.git
+        main
+    )
+
+    include_directories(${CMAKE_CURRENT_BINARY_DIR}/_deps/${dep}-src)
+
+    # add music support
+    add_definitions(-DOGG_MUSIC)
+endif()
+
+##########################################################################################
 # emulator setup
 ##########################################################################################
 
@@ -178,14 +195,13 @@ find_package(OpenGL REQUIRED)
 list(APPEND LIBRARIES ${OPENGL_LIBRARIES})
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
-# add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/tools/as68k)
-
 add_library(fe2_part OBJECT fe2/fe2.s.c)
 target_compile_options(fe2_part PRIVATE -DPART1 -DPART2 -O0 -fomit-frame-pointer -fcommon)
 list(APPEND LIBRARIES fe2_part)
 
-# include_directories(${CMAKE_CURRENT_LIST_DIR}/vendor/ogg)
-# include_directories(${CMAKE_CURRENT_LIST_DIR}/vendor/vorbis)
+include_directories(${CMAKE_CURRENT_LIST_DIR}/vendor/ogg)
+include_directories(${CMAKE_CURRENT_LIST_DIR}/vendor/vorbis)
+include_directories(${CMAKE_CURRENT_LIST_DIR}/vendor)
 
 ##########################################################################################
 # Project executable setup
@@ -211,7 +227,6 @@ if(NOT ${PLATFORM} STREQUAL "Web")
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++ -static -pthread")
         target_link_libraries(${LIBRARIES} -static-libgcc -static-libstdc++ -static -lpthread -Wl,-Bstatic -lstdc++)
-        # dont forget to set  "cmake.configureSettings": { "CMAKE_BUILD_TYPE": "${buildType}" } in settings.json for vs code
         if (CMAKE_BUILD_TYPE STREQUAL "Debug")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
         endif()
