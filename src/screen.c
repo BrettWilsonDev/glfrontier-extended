@@ -9,7 +9,6 @@
 
 #include <GL/gl.h>
 #include <GL/glu.h>
-// #endif
 
 #if !defined(_GLUfuncptr)
 typedef void(CALLBACK *_GLUfuncptr)(void);
@@ -114,7 +113,7 @@ static void change_vidmode()
 
 	// Create the SDL2 window
 	window = SDL_CreateWindow(
-		"SDL2 OpenGL Window",	// Window title
+		"Frontier: Elite 2",	// Window title
 		SDL_WINDOWPOS_CENTERED, // x position
 		SDL_WINDOWPOS_CENTERED, // y position
 		screen_w,				// width
@@ -242,7 +241,7 @@ void Screen_Init(void)
 
 	/* Configure some SDL stuff: */
 	// SDL_WM_SetCaption(PROG_NAME, "Frontier");
-	SDL_SetWindowTitle(window, "Frontier");
+	SDL_SetWindowTitle(window, "Frontier: Elite 2");
 	SDL_EventState(SDL_MOUSEMOTION, SDL_ENABLE);
 	SDL_EventState(SDL_MOUSEBUTTONDOWN, SDL_ENABLE);
 	SDL_EventState(SDL_MOUSEBUTTONUP, SDL_ENABLE);

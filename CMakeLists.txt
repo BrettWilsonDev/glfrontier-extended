@@ -155,6 +155,7 @@ if(USE_PHYSFS)
     set(PHYSFS_STATIC_BUILD ON CACHE BOOL "Build shared library")
     set(PHYSFS_BUILD_SHARED OFF CACHE BOOL "Build shared library")
     set(PHYSFS_BUILD_TEST OFF CACHE BOOL "Build tests")
+    set(PHYSFS_BUILD_DOCS OFF CACHE BOOL "Build documentation")
 
     set(dep physfs)
     add_git_dependency(
@@ -258,18 +259,6 @@ endif()
 ##########################################################################################
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/assets)
-    # add_custom_target(copyfe2sOver
-    #     COMMAND ${CMAKE_COMMAND} -E copy
-    #     ${CMAKE_CURRENT_SOURCE_DIR}/fe2/fe2.s
-    #     ${CMAKE_CURRENT_BINARY_DIR}/tools/as68k/fe2.s
-    #     COMMENT "Copying fe2.s file to as68k directory"
-    # )
-    # add_dependencies(${PROJECT_NAME} copyfe2sOver) 
-    # add_custom_target(assemblefe2
-    #     COMMAND as68k --output-c ${CMAKE_CURRENT_BINARY_DIR}/tools/as68k/fe2.s
-    #     COMMENT "Running as68k to assemble fe2.s"
-    # )
-    # add_dependencies(${PROJECT_NAME} assemblefe2)
     message("copying assets in build")
     set(destination_dir ${CMAKE_CURRENT_BINARY_DIR}/assets)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
