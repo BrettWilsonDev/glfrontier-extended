@@ -7,7 +7,6 @@
   This file contains the routines which pass the audio data to the SDL library.
 */
 
-// #include <SDL.h>
 #include <SDL.h>
 
 #include "main.h"

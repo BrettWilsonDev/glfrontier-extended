@@ -36,9 +36,7 @@ extern p68K exception_handlers[32];
 #define STMemory_WriteWord	MemWriteWord
 #define STMemory_WriteLong	MemWriteLong
 
-// #define STRAM_ADDR(Var)  ((u32)STRam+((u32)Var&0x00ffffff))
 #define STRAM_ADDR(Var) ((STRam) + ((Var) & 0x00ffffff))
-
 
 extern char MemReadByte (p68K pos);
 extern short MemReadWord (p68K pos);

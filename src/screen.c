@@ -7,27 +7,17 @@
 
 #include <SDL.h>
 
-/* DKO_START 211121 */
-#if defined(_WIN32) || defined(WIN32)
-#include <GL/glaux.h>
-#else
 #include <GL/gl.h>
 #include <GL/glu.h>
-#endif
+// #endif
 
 #if !defined(_GLUfuncptr)
-/* Missing GL_glu.h file, check into glu.h: gluTessCallback */
-/*typedef GLvoid (*_GLUfuncptr)();*/
-/*typedef void (*_GLUfuncptr)();*/
-typedef void(CALLBACK *_GLUfuncptr)();
-/*typedef void (__stdcall* _GLUfuncptr)();*/
-/*typedef void (GLAPIENTRYP _GLUfuncptr)(void);*/
+typedef void(CALLBACK *_GLUfuncptr)(void);
 #endif
 /* DKO_END 211121 */
 
 #include "main.h"
 #include "../m68000.h"
-// #include "m68000.h"
 #include "screen.h"
 
 unsigned long VideoBase;	/* Base address in ST Ram for screen(read on each VBL) */

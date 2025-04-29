@@ -20,8 +20,6 @@
 #include <SDL_endian.h>
 
 #include <sys/stat.h>
-// #include <dirent.h>
-// #include <unistd.h>
 
 #include "main.h"
 #include "../host.h"
