@@ -12,6 +12,7 @@ set(CMAKE_C_STANDARD 99)
 
 # library toggles
 option(USE_SDL2 "Use SDL2" ON)
+option(USE_GLAD "Use Glad" ON)
 option(USE_PHYSFS "Use PHYSFS" ON)
 option(USE_MINIVORBIS "Use mini vorbis" ON)
 
@@ -143,8 +144,37 @@ if((USE_SDL2) AND (${PLATFORM} STREQUAL "Web"))
         FetchContent_Populate(SDL2_image)
     endif()
 
-    include_directories(RECURSE build-em/_deps/sdl2-src/include)
-    include_directories(RECURSE build-em/_deps/sdl2_image-src/include)
+    include_directories(RECURSE ${sdl2_SOURCE_DIR}/include)
+    include_directories(RECURSE ${sdl2_image_SOURCE_DIR}/include)
+endif()
+
+##########################################################################################
+# Glad Setup
+##########################################################################################
+
+if(USE_GLAD)
+    set(dep glad)
+    add_git_dependency(
+        ${dep}
+        https://github.com/Dav1dde/glad.git
+        master
+    )
+    
+    FetchContent_GetProperties(${dep})
+    if(NOT ${dep}_POPULATED)
+        FetchContent_Populate(${dep})
+
+        set(GLAD_PROFILE "core" CACHE STRING "OpenGL profile")
+        set(GLAD_API "gl=" CACHE STRING "API type/version pairs, like \"gl=3.2,gles=\", no version means latest")
+        set(GLAD_GENERATOR "c" CACHE STRING "Language to generate the binding for")
+
+        find_package(OpenGL REQUIRED)
+        
+        add_subdirectory(${${dep}_SOURCE_DIR} ${${dep}_BINARY_DIR})
+    endif()
+
+    # add the dependency here to be linked
+    list(APPEND LIBRARIES ${dep})
 endif()
 
 ##########################################################################################
@@ -199,24 +229,19 @@ add_library(fe2_part OBJECT fe2/fe2.s.c)
 target_compile_options(fe2_part PRIVATE -DPART1 -DPART2 -O0 -fomit-frame-pointer -fcommon)
 list(APPEND LIBRARIES fe2_part)
 
-include_directories(${CMAKE_CURRENT_LIST_DIR}/vendor/ogg)
-include_directories(${CMAKE_CURRENT_LIST_DIR}/vendor/vorbis)
-include_directories(${CMAKE_CURRENT_LIST_DIR}/vendor)
-
 ##########################################################################################
 # Project executable setup
 ##########################################################################################
 
 # Adding our source files
 file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/*.c")
-# list(APPEND PROJECT_SOURCES ${CMAKE_CURRENT_LIST_DIR}/host.c)
 
 # Declaring our executable
 add_executable(${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCES})
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INCLUDE} ${CMAKE_CURRENT_LIST_DIR}/host.c)
+target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INCLUDE})
 
 
 ##########################################################################################
