@@ -201,9 +201,6 @@ void Main_Init(void)
 		SDL_Quit();
 		exit(-2);
 	}
-
-	printf("Using Software Render -- TODO Fix GL Renderer\n");
-	Screen_ToggleRenderer();
 }
 
 /*-----------------------------------------------------------------------*/
