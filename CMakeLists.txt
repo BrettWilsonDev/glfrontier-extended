@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 
 # Get project name from the folder name
-set(PROJECT_NAME fe2)
+set(PROJECT_NAME GLFrontier)
 project(${PROJECT_NAME} C)
 
 set(CMAKE_C_STANDARD 99)
@@ -17,6 +17,7 @@ option(USE_MINIVORBIS "Use mini vorbis" ON)
 
 # build options
 option(BUILD_SDL_SHARED_LIB "Build SDL as a shared library" OFF)
+option(USE_GL_RENDERER "Use OpenGL renderer instead of software based SDL internal renderer" ON)
 
 ##########################################################################################
 # MSVC runtime linking
@@ -95,29 +96,8 @@ if(USE_SDL2 AND NOT ${PLATFORM} STREQUAL "Web")
     else()
         list(APPEND LIBRARIES SDL2-static)
     endif()
-endif()
 
-if(USE_SDL2 AND NOT ${PLATFORM} STREQUAL "Web")
-    set(SDL2IMAGE_INSTALL OFF)
-
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        set(SDL2IMAGE_AVIF OFF CACHE BOOL "Support loading AVIF images" FORCE)
-    endif()
-    
-    set(dep SDL2_image)
-    add_git_dependency(
-        ${dep}
-        https://github.com/libsdl-org/SDL_image.git
-        SDL2
-    )
-    
-    FetchContent_GetProperties(${dep})
-    if(NOT ${dep}_POPULATED)
-    endif()
-
-    include_directories(RECURSE build/_deps/sdl2-src/include/SDL2/)
-
-    list(APPEND LIBRARIES SDL2_image)
+    include_directories(RECURSE ${sdl2_SOURCE_DIR}/include/SDL2/)
 endif()
 
 if((USE_SDL2) AND (${PLATFORM} STREQUAL "Web"))
@@ -132,19 +112,7 @@ if((USE_SDL2) AND (${PLATFORM} STREQUAL "Web"))
         FetchContent_Populate(SDL2)
     endif()
 
-    FetchContent_Declare(SDL2_image
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
-        GIT_TAG        SDL2
-        GIT_SHALLOW    TRUE
-        GIT_PROGRESS   TRUE
-    )
-
-    if(NOT SDL2_image_POPULATED)
-        FetchContent_Populate(SDL2_image)
-    endif()
-
     include_directories(RECURSE ${sdl2_SOURCE_DIR}/include)
-    include_directories(RECURSE ${sdl2_image_SOURCE_DIR}/include)
 endif()
 
 ##########################################################################################
@@ -182,7 +150,9 @@ if(USE_MINIVORBIS)
         main
     )
 
-    include_directories(${CMAKE_CURRENT_BINARY_DIR}/_deps/${dep}-src)
+    FetchContent_GetProperties(${dep})
+
+    include_directories(${minivorbis_SOURCE_DIR})
 
     # add music support
     add_definitions(-DOGG_MUSIC)
@@ -196,11 +166,21 @@ find_package(OpenGL REQUIRED)
 list(APPEND LIBRARIES ${OPENGL_LIBRARIES})
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
-add_library(fe2_part OBJECT fe2/fe2.s.c)
-target_compile_options(fe2_part PRIVATE -DPART1 -DPART2 -O0 -fomit-frame-pointer -fcommon)
-list(APPEND LIBRARIES fe2_part)
+add_library(fe2_part_one OBJECT fe2/fe2.s.c)
+target_compile_options(fe2_part_one PRIVATE -DPART1 -O1 -fomit-frame-pointer -fcommon)
+list(APPEND LIBRARIES fe2_part_one)
 
-add_definitions(-DWITH_GL)
+add_library(fe2_part_two OBJECT fe2/fe2.s.c)
+target_compile_options(fe2_part_two PRIVATE -DPART2 -O0 -fomit-frame-pointer -fcommon)
+list(APPEND LIBRARIES fe2_part_two)
+
+# This may not work on all systems
+add_definitions(-DLITTLE_ENDIAN)
+
+# build using OpenGL if not build using sdl renderer as a fall back
+if(USE_GL_RENDERER)
+    add_definitions(-DWITH_GL)
+endif()
 
 ##########################################################################################
 # Project executable setup
@@ -215,7 +195,6 @@ add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCES})
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INCLUDE})
-
 
 ##########################################################################################
 # Compiler and linker flags

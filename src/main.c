@@ -21,7 +21,7 @@
 #include "hostcall.h"
 #include "input.h"
 #include "keymap.h"
-#include "screen.h"
+#include "renderer.h"
 #include "shortcut.h"
 
 #define FORCE_WORKING_DIR /* Set default directory to cwd */
@@ -253,7 +253,7 @@ int main(int argc, char *argv[])
 	if (bUseFullscreen)
 		Screen_ToggleFullScreen();
 
-	// acts as a game loop of sorts 20ms works out to 50 fps
+	// acts as a game loop of sorts 20ms is the speed of the original game
 	SDL_AddTimer(20, &vbl_callback, NULL);
 
 	/* Run emulation */

@@ -6,7 +6,7 @@
 #include "input.h"
 #include "../m68000.h"
 #include "shortcut.h"
-#include "screen.h"
+#include "renderer.h"
 
 CINPUT input;
 

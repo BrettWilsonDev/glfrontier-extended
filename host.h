@@ -75,7 +75,7 @@ void load_binfile(const char *bin_filename);
 
 static inline u32 do_get_mem_long(u32 *a)
 {
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__)
 	u32 val = *a;
 	val = ((val & 0xFF000000) >> 24) | ((val & 0x00FF0000) >> 8) | ((val & 0x0000FF00) << 8) | ((val & 0x000000FF) << 24);
 	return val;
@@ -89,7 +89,7 @@ static inline u32 do_get_mem_long(u32 *a)
 
 static inline u16 do_get_mem_word(u16 *a)
 {
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__)
 	u16 val = *a;
 	val = (val >> 8) | (val << 8);
 	return val;
@@ -108,7 +108,7 @@ static inline u8 do_get_mem_byte(u8 *a)
 
 static inline void do_put_mem_long(u32 *a, u32 v)
 {
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__)
 	v = (v >> 24) | ((v & 0x00FF0000) >> 8) | ((v & 0x0000FF00) << 8) | (v << 24);
 	*a = v;
 #elif defined(LITTLE_ENDIAN)
@@ -124,7 +124,7 @@ static inline void do_put_mem_long(u32 *a, u32 v)
 
 static inline void do_put_mem_word(u16 *a, u16 v)
 {
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__)
 	*a = (v >> 8) | (v << 8);
 #elif defined(LITTLE_ENDIAN)
 	u8 *b = (u8 *)a;

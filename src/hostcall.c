@@ -19,12 +19,12 @@
 #include <SDL.h>
 #include <SDL_endian.h>
 
-#include <sys/stat.h>
+#include <stdio.h>
 
 #include "main.h"
 #include "../host.h"
 #include "hostcall.h"
-#include "screen.h"
+#include "renderer.h"
 #include "audio.h"
 #include "input.h"
 #include "keymap.h"
@@ -578,7 +578,8 @@ void Call_SetScreenBase()
 	Params -= SIZE_WORD;
 
 	VideoBase = STMemory_ReadLong(Params + SIZE_WORD);
-	VideoRaster = STRam + VideoBase;
+	// VideoRaster = STRam + VideoBase;
+	VideoRaster = (unsigned char *)STRam + VideoBase;
 
 	for (i = 0; i < len_working_ext_pal; i++)
 	{
@@ -906,8 +907,7 @@ static void Call_Fopendir()
 	dirName++;
 	if (PHYSFS_mkdir(dirName) == 0)
 	{
-		printf("failed to create directory: %s (%d)\n",
-			   PHYSFS_getLastErrorCode());
+		printf("failed to create directory: %s (%d)\n");
 	}
 
 	strncpy(cur_dir, name, sizeof(cur_dir) - 1);
@@ -963,61 +963,125 @@ static void Call_Fclosedir()
 
 #define MAX_FILENAME_LEN 14
 
+// ==========================================================================
+
+#include <stdio.h>
+#include <stdint.h>
+
 static void Call_Freaddir()
 {
-	int p, i, attribs = 0, len = 0;
-	char name[MAX_FILENAME_LEN];
-	char full_virtual_path[1024];
-	char full_physical_path[1024];
-	PHYSFS_Stat _stat;
-	struct stat fs_stat;
+    int p, i, attribs = 0, len = 0;
+    char name[MAX_FILENAME_LEN];
+    char full_virtual_path[1024];
+    char full_physical_path[1024];
+    PHYSFS_Stat _stat;
+    PHYSFS_Stat fs_stat;
 
-	if (!poo_files || !poo_files[poo_index])
-	{
-		SetReg(REG_D0, -1);
-		return;
-	}
+    if (!poo_files || !poo_files[poo_index])
+    {
+        SetReg(REG_D0, -1);
+        return;
+    }
 
-	strncpy(name, poo_files[poo_index], MAX_FILENAME_LEN - 1);
-	name[MAX_FILENAME_LEN - 1] = '\0';
+    // strncpy(name, poo_files[poo_index], MAX_FILENAME_LEN - 1);
+	strncpy_s(name, MAX_FILENAME_LEN, poo_files[poo_index], MAX_FILENAME_LEN - 1);
+    name[MAX_FILENAME_LEN - 1] = '\0';
 
-	// Try PhysicsFS stats first
-	snprintf(full_virtual_path, sizeof(full_virtual_path), "/%s", poo_files[poo_index]);
+    // Try PhysicsFS stats first
+    snprintf(full_virtual_path, sizeof(full_virtual_path), "/%s", poo_files[poo_index]);
 
-	if (PHYSFS_stat(full_virtual_path, &_stat))
-	{
-		len = (int)_stat.filesize;
-		attribs = (_stat.filetype == PHYSFS_FILETYPE_DIRECTORY) ? 0x10 : 0;
-	}
-	else
-	{
-		// Fall back to regular filesystem stats
-		snprintf(full_physical_path, sizeof(full_physical_path), "%s/%s", cur_dir, poo_files[poo_index]);
+    if (PHYSFS_stat(full_virtual_path, &_stat))
+    {
+        len = (int)_stat.filesize;
+        attribs = (_stat.filetype == PHYSFS_FILETYPE_DIRECTORY) ? 0x10 : 0;
+    }
+    else
+    {
+        // Fall back to regular filesystem stats
+        snprintf(full_physical_path, sizeof(full_physical_path), "%s/%s", cur_dir, poo_files[poo_index]);
 
-		if (stat(full_physical_path, &fs_stat) == 0)
-		{
-			len = (int)fs_stat.st_size;
-			attribs = (S_ISDIR(fs_stat.st_mode) ? 0x10 : 0);
-		}
-		else
-		{
-			len = 0;
-			attribs = 0;
-		}
-	}
+        if (PHYSFS_stat(full_physical_path, &fs_stat))
+        {
+            len = (int)fs_stat.filesize;
+            attribs = (fs_stat.filetype == PHYSFS_FILETYPE_DIRECTORY) ? 0x10 : 0;
+        }
+        else
+        {
+            len = 0;
+            attribs = 0;
+        }
+    }
 
-	p = GetReg(REG_A0);
-	for (i = 0; i < MAX_FILENAME_LEN; i++)
-	{
-		STMemory_WriteByte(p++, name[i]);
-	}
+    p = GetReg(REG_A0);
+    for (i = 0; i < MAX_FILENAME_LEN; i++)
+    {
+        STMemory_WriteByte(p++, name[i]);
+    }
 
-	SetReg(REG_D2, attribs);
-	SetReg(REG_D1, len);
-	SetReg(REG_D0, 0);
+    SetReg(REG_D2, attribs);
+    SetReg(REG_D1, len);
+    SetReg(REG_D0, 0);
 
-	poo_index++;
+    poo_index++;
 }
+
+// ==========================================================================
+
+// static void Call_Freaddir()
+// {
+// 	int p, i, attribs = 0, len = 0;
+// 	char name[MAX_FILENAME_LEN];
+// 	char full_virtual_path[1024];
+// 	char full_physical_path[1024];
+// 	PHYSFS_Stat _stat;
+// 	struct stat fs_stat;
+
+// 	if (!poo_files || !poo_files[poo_index])
+// 	{
+// 		SetReg(REG_D0, -1);
+// 		return;
+// 	}
+
+// 	strncpy(name, poo_files[poo_index], MAX_FILENAME_LEN - 1);
+// 	name[MAX_FILENAME_LEN - 1] = '\0';
+
+// 	// Try PhysicsFS stats first
+// 	snprintf(full_virtual_path, sizeof(full_virtual_path), "/%s", poo_files[poo_index]);
+
+// 	if (PHYSFS_stat(full_virtual_path, &_stat))
+// 	{
+// 		len = (int)_stat.filesize;
+// 		attribs = (_stat.filetype == PHYSFS_FILETYPE_DIRECTORY) ? 0x10 : 0;
+// 	}
+// 	else
+// 	{
+// 		// Fall back to regular filesystem stats
+// 		snprintf(full_physical_path, sizeof(full_physical_path), "%s/%s", cur_dir, poo_files[poo_index]);
+
+// 		if (stat(full_physical_path, &fs_stat) == 0)
+// 		{
+// 			len = (int)fs_stat.st_size;
+// 			attribs = (S_ISDIR(fs_stat.st_mode) ? 0x10 : 0);
+// 		}
+// 		else
+// 		{
+// 			len = 0;
+// 			attribs = 0;
+// 		}
+// 	}
+
+// 	p = GetReg(REG_A0);
+// 	for (i = 0; i < MAX_FILENAME_LEN; i++)
+// 	{
+// 		STMemory_WriteByte(p++, name[i]);
+// 	}
+
+// 	SetReg(REG_D2, attribs);
+// 	SetReg(REG_D1, len);
+// 	SetReg(REG_D0, 0);
+
+// 	poo_index++;
+// }
 
 // ==========================================================================================================
 

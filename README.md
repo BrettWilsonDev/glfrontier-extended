@@ -30,7 +30,8 @@ Required:
 5. Build the project: `cmake --build . --config Release`
 
 ## Acknowledgments
-* Contributor to the original project: https://github.com/pcercuei/glfrontier
+* This project builds upon the work of: https://github.com/pcercuei/glfrontier
+* Incorporates additional code from: https://github.com/Kochise/GLFrontier-win32.git
 * sdl2 for windowing and input: https://github.com/libsdl-org/SDL/tree/SDL2
 * physFs for file system (loading and saving save game): https://github.com/icculus/physfs
 * minivorbis for audio: https://github.com/edubart/minivorbis

@@ -8,7 +8,7 @@
 
 #include "main.h"
 #include "audio.h"
-#include "screen.h"
+#include "renderer.h"
 #include "shortcut.h"
 #include "hostcall.h"
 #include "../m68000.h"

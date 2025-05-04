@@ -8,8 +8,8 @@
 #include "keymap.h"
 #include "input.h"
 #include "shortcut.h"
-#include "screen.h"
-#include <SDL2/SDL_keyboard.h>
+#include "renderer.h"
+#include <SDL_keyboard.h>
 
 /*-----------------------------------------------------------------------*/
 /* SDL Keycode to ST scancode mapping table */

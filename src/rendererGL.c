@@ -1,9 +1,6 @@
-/*
-  Hatari - screen.c
+#ifdef WITH_GL
 
-  This file is distributed under the GNU Public License, version 2 or at your
-  option any later version. Read the file gpl.txt for details.
-*/
+// This makes use of opengl to render both software and GL.
 
 #include <SDL.h>
 
@@ -17,7 +14,7 @@ typedef void(CALLBACK *_GLUfuncptr)(void);
 
 #include "main.h"
 #include "../m68000.h"
-#include "screen.h"
+#include "renderer.h"
 
 unsigned long VideoBase;	/* Base address in ST Ram for screen(read on each VBL) */
 unsigned char *VideoRaster; /* Pointer to Video raster, after VideoBase in PC address space. Use to copy data on HBL */
@@ -2139,3 +2136,4 @@ void Nu_DrawScreen()
 
 	set_main_viewport();
 }
+#endif
