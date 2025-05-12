@@ -166,20 +166,25 @@ find_package(OpenGL REQUIRED)
 list(APPEND LIBRARIES ${OPENGL_LIBRARIES})
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
-add_library(fe2_part_one OBJECT fe2/fe2.s.c)
-target_compile_options(fe2_part_one PRIVATE -DPART1 -O1 -fomit-frame-pointer -fcommon)
-list(APPEND LIBRARIES fe2_part_one)
-
-add_library(fe2_part_two OBJECT fe2/fe2.s.c)
-target_compile_options(fe2_part_two PRIVATE -DPART2 -O0 -fomit-frame-pointer -fcommon)
-list(APPEND LIBRARIES fe2_part_two)
-
 # This may not work on all systems
 add_definitions(-DLITTLE_ENDIAN)
 
-# build using OpenGL if not build using sdl renderer as a fall back
-if(USE_GL_RENDERER)
-    add_definitions(-DWITH_GL)
+if (${PLATFORM} STREQUAL "Web")
+    list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_part_one.a)
+    list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_part_two.a)
+else()
+    add_library(fe2_part_one OBJECT fe2/fe2.s.c)
+    target_compile_options(fe2_part_one PRIVATE -DPART1 -O2 -fomit-frame-pointer -fcommon)
+    list(APPEND LIBRARIES fe2_part_one)
+    
+    add_library(fe2_part_two OBJECT fe2/fe2.s.c)
+    target_compile_options(fe2_part_two PRIVATE -DPART2 -O0 -fomit-frame-pointer -fcommon)
+    list(APPEND LIBRARIES fe2_part_two)
+
+    # build using OpenGL if not build using sdl renderer as a fall back
+    if(USE_GL_RENDERER)
+        add_definitions(-DWITH_GL)
+    endif()
 endif()
 
 ##########################################################################################
@@ -204,6 +209,7 @@ if(NOT ${PLATFORM} STREQUAL "Web")
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++ -static -pthread")
         target_link_libraries(${LIBRARIES} -static-libgcc -static-libstdc++ -static -lpthread -Wl,-Bstatic -lstdc++)
+        # target_link_libraries(${LIBRARIES})
         if (CMAKE_BUILD_TYPE STREQUAL "Debug")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
         endif()
@@ -295,6 +301,21 @@ endif()
 
 # Set common compiler flags
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+
+if (${PLATFORM} STREQUAL "Web")
+    # Tell Emscripten to build an .html file.
+    set(CMAKE_EXECUTABLE_SUFFIX ".html")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os")
+    SET(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -Os")
+    set(CMAKE_EXECUTABLE_SUFFIX ".html") # This line is used to set your executable to build with the emscripten html template so that you can directly open it.
+    set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
+    if(NOT noAssets)
+        if(USE_SDL2)
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s USE_SDL=2 -lSDL -s USE_SDL_IMAGE=2 -s ALLOW_MEMORY_GROWTH=1 --use-preload-plugins -s SDL2_IMAGE_FORMATS=\"['png']\" -s GL_UNSAFE_OPTS=0 --preload-file assets/ --preload-file ${CMAKE_CURRENT_BINARY_DIR}/fe2.s.bin@fe2.s.bin  --shell-file ../vendor/minshell.html")
+        endif()
+        target_compile_definitions(${PROJECT_NAME} PUBLIC ASSETS_PATH="/assets/")
+    endif()
+endif()
 
 # Ensure that hot-reload is enabled for VS
 if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")

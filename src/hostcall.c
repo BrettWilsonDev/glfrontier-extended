@@ -983,8 +983,16 @@ static void Call_Freaddir()
         return;
     }
 
-    // strncpy(name, poo_files[poo_index], MAX_FILENAME_LEN - 1);
-	strncpy_s(name, MAX_FILENAME_LEN, poo_files[poo_index], MAX_FILENAME_LEN - 1);
+    strncpy(name, poo_files[poo_index], MAX_FILENAME_LEN - 1);
+	// strncpy_s(name, MAX_FILENAME_LEN, poo_files[poo_index], MAX_FILENAME_LEN - 1);
+	// strlcpy(name, poo_files[poo_index], MAX_FILENAME_LEN);
+	// size_t len = strlen(poo_files[poo_index]);
+	// if (len >= MAX_FILENAME_LEN) {
+	// 	// handle error
+	// } else {
+	// 	memcpy(name, poo_files[poo_index], len + 1);
+	// 	name[MAX_FILENAME_LEN - 1] = '\0'; // add this line
+	// }
     name[MAX_FILENAME_LEN - 1] = '\0';
 
     // Try PhysicsFS stats first

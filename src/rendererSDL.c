@@ -281,8 +281,8 @@ int queued_string_pos;
 void Nu_QueueDrawStr()
 {
 	assert(queued_string_pos < MAX_QUEUED_STRINGS);
-	// strncpy(queued_strings[queued_string_pos].str, GetReg(REG_A0) + STRam, 64);
-	strncpy_s((char*)queued_strings[queued_string_pos].str, 64, GetReg(REG_A0) + STRam, 64);
+	strncpy(queued_strings[queued_string_pos].str, GetReg(REG_A0) + STRam, 64);
+	// strncpy_s((char*)queued_strings[queued_string_pos].str, 64, GetReg(REG_A0) + STRam, 64);
 	queued_strings[queued_string_pos].x = GetReg(REG_D1);
 	queued_strings[queued_string_pos].y = GetReg(REG_D2);
 	queued_strings[queued_string_pos++].col = GetReg(REG_D0);
