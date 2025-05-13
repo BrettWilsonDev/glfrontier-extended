@@ -109,6 +109,22 @@ void Main_EventHandler()
 			input.abs_y = event.motion.y;
 			break;
 		case SDL_MOUSEBUTTONDOWN:
+			// hacky fix for the system map glitch in the original game
+			if (event.button.button == SDL_BUTTON_LEFT)
+			{
+				int x = event.button.x;
+				int y = event.button.y;
+				const int HitRegionSize = 30;
+
+				if (x >= 33 && x <= 33 + HitRegionSize && y >= screen_h - HitRegionSize && y <= screen_h)
+				{
+					SDL_Keysym sdlkey = { .sym = 1073741883 };
+
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					break;
+				}
+			}
 			Input_MousePress(event.button.button);
 			break;
 		case SDL_MOUSEBUTTONUP:

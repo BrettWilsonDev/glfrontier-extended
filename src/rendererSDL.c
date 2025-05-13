@@ -54,7 +54,7 @@ static void change_vidmode()
 									 SDL_WINDOWPOS_CENTERED, // Center the window
 									 SDL_WINDOWPOS_CENTERED,
 									 screen_w, screen_h,
-									 SDL_WINDOW_SHOWN | (bInFullScreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+									 SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | (bInFullScreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
 		if (!sdlWindow)
 		{
 			fprintf(stderr, "Window creation failed: %s\n", SDL_GetError());
@@ -211,7 +211,7 @@ static int DrawChar(int col, int xoffset, char *scrline, int chr)
 	char *pix;
 	int i;
 
-	font_pos = font_bmp;
+	font_pos = (const char*)font_bmp;
 	font_pos += (chr & 0xff) * 10;
 	scrline += xoffset;
 
@@ -281,7 +281,8 @@ int queued_string_pos;
 void Nu_QueueDrawStr()
 {
 	assert(queued_string_pos < MAX_QUEUED_STRINGS);
-	strncpy(queued_strings[queued_string_pos].str, GetReg(REG_A0) + STRam, 64);
+	// strncpy(queued_strings[queued_string_pos].str, GetReg(REG_A0) + STRam, 64);
+	strncpy((char*)queued_strings[queued_string_pos].str, (char*)(GetReg(REG_A0) + STRam), 64);
 	// strncpy_s((char*)queued_strings[queued_string_pos].str, 64, GetReg(REG_A0) + STRam, 64);
 	queued_strings[queued_string_pos].x = GetReg(REG_D1);
 	queued_strings[queued_string_pos].y = GetReg(REG_D2);
@@ -351,30 +352,6 @@ void Screen_ToggleRenderer()
 		use_renderer = 0;
 }
 
-// Convert 0x00RRGGBB to RGB565
-static inline uint16_t convert_to_rgb565(uint32_t color)
-{
-	return ((color >> 8) & 0xF800) | ((color >> 5) & 0x07E0) | ((color >> 3) & 0x001F);
-}
-
-static uint16_t cached_main_pal[256];
-static uint16_t cached_ctrl_pal[16];
-static bool pal_dirty = TRUE;
-
-static void cache_palettes() {
-    if (!pal_dirty) return;
-    
-    for (int i = 0; i < 256; i++) {
-        uint32_t col = MainRGBPalette[i];
-        cached_main_pal[i] = ((col >> 8) & 0xF800) | ((col >> 5) & 0x07E0) | ((col >> 3) & 0x001F);
-    }
-    for (int i = 0; i < 16; i++) {
-        uint32_t col = CtrlRGBPalette[i];
-        cached_ctrl_pal[i] = ((col >> 8) & 0xF800) | ((col >> 5) & 0x07E0) | ((col >> 3) & 0x001F);
-    }
-    pal_dirty = FALSE;
-}
-
 static void draw_control_panel() {
     // Draw text (unchanged)
     int temp = logscreen2;
@@ -423,6 +400,12 @@ static void draw_control_panel() {
 
     SDL_UnlockTexture(sdlTexture);
     SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
+
+	// // Draw a red rectangle overlay
+    // SDL_SetRenderDrawColor(sdlRenderer, 255, 0, 0, 255);  // Red color
+	// const int size = 30;
+    // SDL_Rect redRect = { 33, screen_h - size, size, size };               // Rectangle position and size
+    // SDL_RenderFillRect(sdlRenderer, &redRect);
 }
 
 void BuildRGBPalette(unsigned int *rgb, unsigned short *st, int len) {
@@ -433,7 +416,6 @@ void BuildRGBPalette(unsigned int *rgb, unsigned short *st, int len) {
         unsigned int b = (st_col & 0x0f) * 17;
         rgb[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
     }
-    pal_dirty = TRUE; // Mark palettes as needing update
 }
 
 void Nu_IsGLRenderer()
