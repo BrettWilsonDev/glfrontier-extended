@@ -2,7 +2,7 @@
 
 * **Compiler Requirement**: This project will build with gcc or clang.
 * **Build System**: This project uses CMake.
-* **Dependencies**: This project has no dependencies sdl2 physFs and minivorbis are all setup using fetchcontent.
+* **Dependencies**: This project has no dependencies sdl2 and physFs are all setup using fetchcontent.
 
 ## The Game Itself
 Some special keys to note:

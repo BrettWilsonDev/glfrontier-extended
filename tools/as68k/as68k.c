@@ -2238,7 +2238,7 @@ int main (int argc, char **argv)
 	int arg, size, num;
 	char bin_filename[128];
 	if (argc == 1) {
-		fprintf (stderr, "Usage: ./as68k [--dump-labels] [--output-c | --output-i386] file.s\n");
+		fprintf (stderr, "Usage: ./as68k [--dump-labels] [--output-cpp | --output-i386] file.s\n");
 		exit (0);
 	}
 	
@@ -2247,7 +2247,7 @@ int main (int argc, char **argv)
 		if (strcmp (argv[arg], "--dump-labels") == 0) {
 			dump_labels = 1;
 		}
-		else if (strcmp (argv[arg], "--output-c") == 0) {
+		else if (strcmp (argv[arg], "--output-cpp") == 0) {
 			comp = &compiler[COMPILE_C];
 			output_c = 1;
 		}
@@ -2256,6 +2256,10 @@ int main (int argc, char **argv)
 			output_c = 1;
 		}
 		else {
+			if (arg == 1)
+			{
+				continue;
+			}
 			fprintf (stderr, "Unknown option: '%s'\n", argv[arg]);
 		}
 	}

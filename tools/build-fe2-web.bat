@@ -22,3 +22,6 @@ IF "%1"=="async" (
 )
 
 call emmake make
+
+echo ============== DONE ==============
+pause
