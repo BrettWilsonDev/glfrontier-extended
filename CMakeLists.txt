@@ -1,11 +1,10 @@
 cmake_minimum_required(VERSION 3.22)
-set(CMAKE_WARN_UNUSED OFF)
-set(CMAKE_WARN_UNINITIALIZED OFF)
 
+# Get project name from the folder name
 set(PROJECT_NAME GLFrontier)
-project(${PROJECT_NAME} C CXX)
+project(${PROJECT_NAME} C)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_C_STANDARD 99)
 
 ##########################################################################################
 # Configurable options
@@ -18,8 +17,6 @@ option(USE_PHYSFS "Use PHYSFS" ON)
 # build options
 option(BUILD_SDL_SHARED_LIB "Build SDL as a shared library" OFF)
 option(USE_GL_RENDERER "Use OpenGL renderer instead of software based SDL internal renderer" ON)
-
-set(USE_GL_RENDERER ON CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE)
 
 ##########################################################################################
 # MSVC runtime linking
@@ -161,22 +158,25 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 endif()
 
 if (${PLATFORM} STREQUAL "Web")
+    # for now until gl support is added  
+    set(USE_GL_RENDERER OFF CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE)
+
     # list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_part_one.a)
     # list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_part_two.a)
-    add_library(fe2_part_one STATIC fe2/fe2.s.cpp)
+    add_library(fe2_part_one STATIC fe2/fe2.s.c)
     target_compile_options(fe2_part_one PRIVATE -DPART1 -O0)
     list(APPEND LIBRARIES fe2_part_one)
     
-    add_library(fe2_part_two STATIC fe2/fe2.s.cpp)
+    add_library(fe2_part_two STATIC fe2/fe2.s.c)
     target_compile_options(fe2_part_two PRIVATE -DPART2 -O0)
     list(APPEND LIBRARIES fe2_part_two)
 
 else()
-    add_library(fe2_part_one OBJECT fe2/fe2.s.cpp)
+    add_library(fe2_part_one OBJECT fe2/fe2.s.c)
     target_compile_options(fe2_part_one PRIVATE -DPART1 -O2 -fomit-frame-pointer -fcommon)
     list(APPEND LIBRARIES fe2_part_one)
     
-    add_library(fe2_part_two OBJECT fe2/fe2.s.cpp)
+    add_library(fe2_part_two OBJECT fe2/fe2.s.c)
     target_compile_options(fe2_part_two PRIVATE -DPART2 -O0 -fomit-frame-pointer -fcommon)
     list(APPEND LIBRARIES fe2_part_two)
 
@@ -193,15 +193,16 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/fe2)
 ##########################################################################################
 
 # Adding our source files
-# Define PROJECT_SOURCES as a list of all source files
-file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp")
+file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/*.c")
 
 # Define PROJECT_INCLUDE to be the path to the include directory of the project
 set(PROJECT_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/src/")
 
 # Declaring our executable
 add_executable(${PROJECT_NAME})
+
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCES})
+
 target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INCLUDE})
 
 ##########################################################################################
@@ -209,22 +210,26 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INCLUDE})
 ##########################################################################################
 
 if(NOT ${PLATFORM} STREQUAL "Web")
-    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++ -static -pthread")
         target_link_libraries(${LIBRARIES} -static-libgcc -static-libstdc++ -static -lpthread -Wl,-Bstatic -lstdc++)
+        # target_link_libraries(${LIBRARIES})
         if (CMAKE_BUILD_TYPE STREQUAL "Debug")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
         endif()
-    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "GNU")
         target_link_libraries(${LIBRARIES} -static-libgcc -static-libstdc++ -static -pthread -Wl,-Bstatic -lstdc++)
-    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+        # target_link_libraries(${LIBRARIES})
+    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_C_COMPILER_ID STREQUAL "Intel")
         target_link_libraries(${LIBRARIES} -static-intel -lpthread -Wl,-Bstatic -lstdc++) 
-    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_COMPILER_ID STREQUAL "MSVC")
         target_link_libraries(${LIBRARIES})
 
         if(OFF)
             set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")  
         endif()
+
+        # dont forget to set  "cmake.configureSettings": { "CMAKE_BUILD_TYPE": "${buildType}" } in settings.json for vs code
         if (CMAKE_BUILD_TYPE STREQUAL "Debug")
             message("-- console enabled")
             set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
@@ -284,23 +289,22 @@ else()
         target_compile_definitions(${PROJECT_NAME} PUBLIC ASSETS_PATH="./assets/")
     endif()
     if(WIN32)
-      if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mwindows") 
-      endif()    
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mwindows") 
+        endif()    
       add_compile_definitions(NDEBUG)
     endif()
 endif()
 
 # Set common compiler flags
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable -Wno-unused-function")
 
 if (${PLATFORM} STREQUAL "Web")
     # Tell Emscripten to build an .html file.
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os")
     SET(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -Os")
-    set(CMAKE_EXECUTABLE_SUFFIX ".html")
+    set(CMAKE_EXECUTABLE_SUFFIX ".html") # This line is used to set your executable to build with the emscripten html template so that you can directly open it.
     set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
     if(NOT noAssets)
         if(USE_SDL2)

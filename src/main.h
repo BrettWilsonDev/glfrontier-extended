@@ -10,7 +10,7 @@
 
 typedef int BOOL;
 #ifndef bool
-// typedef int bool;
+typedef int bool;
 #endif /* bool */
 
 #ifndef MIN
