@@ -148,52 +148,6 @@ static s32 get_fixup(s32 reloc, s32 code_end)
     }
 }
 
-#ifdef __emscripten__
-
-// Load a 68k binary into memory from preloaded file see the cmake file
-void load_binfile(const char *bin_filename)
-{
-    s32 reloc, next, pos, code_end, len, i = 0;
-    FILE *f;
-
-    if ((f = fopen(bin_filename, "r")) == NULL)
-    {
-        fprintf(stderr, "Error opening 68k-binary '%s'\n", bin_filename);
-        exit(-2); // Exit if file cannot be opened
-    }
-    fseek(f, 0, SEEK_END);
-    len = ftell(f); // Get the file length
-    fseek(f, 0, SEEK_SET);
-    assert(len + LOAD_BASE < MEM_SIZE);    // Ensure we don't exceed memory bounds
-    fread(m68kram + LOAD_BASE, 1, len, f); // Read file into memory
-    fclose(f);
-
-    buf_pos = LOAD_BASE + 2;
-    code_end = LOAD_BASE + 0x1c + rdlong(buf_pos); // Set code end based on relocation info
-
-    i = 0;
-    reloc = get_fixup(0, code_end); // Get first relocation address
-    while (reloc)
-    {
-        i++; // Count the number of relocations
-        pos = buf_pos;
-        buf_pos = reloc;
-        next = rdlong(buf_pos); // Get the relocation address
-        next += LOAD_BASE;
-        wrlong(buf_pos, next); // Apply the relocation fixup
-        if (next > code_end)
-        {
-            fprintf(stderr, "Reloc 0x%x (0x%x) out of range..\n", next, reloc + LOAD_BASE);
-        }
-        buf_pos = pos;
-        reloc = get_fixup(reloc, code_end); // Get the next relocation address
-    }
-
-    fprintf(stderr, "%s: 0x%x bytes (code end 0x%x), %d fixups; loaded at 0x%x.\n", bin_filename, len, code_end, i, LOAD_BASE);
-}
-
-#else
-
 #include "fe2_bin.h"
 
 void load_binfile(const char *bin_filename)
@@ -229,9 +183,6 @@ void load_binfile(const char *bin_filename)
 
     fprintf(stderr, "Binary from memory: 0x%x bytes (code end 0x%x), %d fixups; loaded at 0x%x.\n", (int)len, code_end, i, LOAD_BASE);
 }
-
-#endif
-
 
 #ifdef M68K_DEBUG
 void m68k_print_line_no()
