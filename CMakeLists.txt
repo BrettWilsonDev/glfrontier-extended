@@ -179,6 +179,7 @@ else()
 endif()
 
 include_directories(${CMAKE_CURRENT_LIST_DIR}/fe2)
+include_directories(${CMAKE_CURRENT_LIST_DIR}/fe2/audio)
 
 ##########################################################################################
 # Project executable setup
@@ -249,13 +250,6 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/assets)
             set(destination_dir ${CMAKE_CURRENT_BINARY_DIR}/release/assets)
         endif()
     endif()
-    add_custom_target(copyAssetsOver
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets
-        ${destination_dir}
-        COMMENT "Copying assets to build directory"
-    )
-    add_dependencies(${PROJECT_NAME} copyAssetsOver) 
 endif()
 
 add_definitions( -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} )
