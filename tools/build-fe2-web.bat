@@ -4,8 +4,6 @@ pushd %~dp0
 
 mkdir ..\build-em
 
-xcopy /E /I /Y "..\assets\" "..\build-em\assets\"
-
 cd ..\build-em
 
 IF "%1"=="async" (

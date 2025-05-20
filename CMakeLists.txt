@@ -164,6 +164,8 @@ if (${PLATFORM} STREQUAL "Web")
     list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_part_two.a)
     list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_part_one.a)
 else()
+    set(USE_GL_RENDERER OFF CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE)
+
     add_library(fe2_part_one OBJECT fe2/fe2.s.c)
     target_compile_options(fe2_part_one PRIVATE -DPART1 -O2 -fomit-frame-pointer -fcommon)
     list(APPEND LIBRARIES fe2_part_one)
@@ -240,18 +242,6 @@ endif()
 # Build flags and additional settings
 ##########################################################################################
 
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/assets)
-    message("copying assets in build")
-    set(destination_dir ${CMAKE_CURRENT_BINARY_DIR}/assets)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-            set(destination_dir ${CMAKE_CURRENT_BINARY_DIR}/debug/assets)
-        else()
-            set(destination_dir ${CMAKE_CURRENT_BINARY_DIR}/release/assets)
-        endif()
-    endif()
-endif()
-
 add_definitions( -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} )
 
 # for web build when using emscripten
@@ -291,10 +281,10 @@ if (${PLATFORM} STREQUAL "Web")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os")
     SET(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -Os")
     set(CMAKE_EXECUTABLE_SUFFIX ".html") # This line is used to set your executable to build with the emscripten html template so that you can directly open it.
-    set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
+    set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "index" SUFFIX ".html")
     if(NOT noAssets)
         if(USE_SDL2)
-            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s USE_SDL=2 -lSDL -s USE_SDL_IMAGE=2 -s ALLOW_MEMORY_GROWTH=1 --use-preload-plugins -s SDL2_IMAGE_FORMATS=\"['png']\" -s GL_UNSAFE_OPTS=0 --preload-file assets/ --shell-file ../vendor/minshell.html")
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s USE_SDL=2 -lSDL -s USE_SDL_IMAGE=2 -s ALLOW_MEMORY_GROWTH=1 --use-preload-plugins -s FORCE_FILESYSTEM=1 -s GL_UNSAFE_OPTS=0 --shell-file ../vendor/minshell.html")
         endif()
         target_compile_definitions(${PROJECT_NAME} PUBLIC ASSETS_PATH="/assets/")
     endif()

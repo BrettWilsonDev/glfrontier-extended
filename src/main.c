@@ -9,8 +9,6 @@
 
 #include <time.h>
 #include <signal.h>
-// #include <sys/time.h>
-// #include <unistd.h>
 #include <signal.h>
 
 #include <SDL.h>
@@ -24,6 +22,8 @@
 #include "renderer.h"
 #include "shortcut.h"
 
+#include "touch_input.h"
+
 #define FORCE_WORKING_DIR /* Set default directory to cwd */
 
 BOOL bQuitProgram = FALSE; /* Flag to quit program cleanly */
@@ -34,6 +34,9 @@ char szBootDiscImage[MAX_FILENAME_LENGTH] = {""};
 
 char szWorkingDir[MAX_FILENAME_LENGTH] = {""};
 char szCurrentDir[MAX_FILENAME_LENGTH] = {""};
+
+bool toggleRightClick = FALSE; // used to toggle the mouse grab
+bool toggleTouchControls = FALSE;
 
 /*-----------------------------------------------------------------------*/
 /*
@@ -84,6 +87,27 @@ void Main_UnPauseEmulation(void)
 	}
 }
 
+// hacky fix for the system map view left click glitch in the original game
+int systemview_button(SDL_Event *event) // only called if touch input is not active
+{
+	if (event->button.button == SDL_BUTTON_LEFT)
+	{
+		int x = event->button.x;
+		int y = event->button.y;
+		const int HitRegionSize = 30;
+
+		if (x >= 33 && x <= 33 + HitRegionSize && y >= screen_h - HitRegionSize && y <= screen_h)
+		{
+			SDL_Keysym sdlkey = {.scancode = SDL_SCANCODE_F2, .sym = SDLK_F2};
+
+			Keymap_KeyDown(&sdlkey);
+			Keymap_KeyUp(&sdlkey);
+			return 1;
+		}
+	}
+	return 0;
+}
+
 /* ----------------------------------------------------------------------- */
 /*
   Message handler
@@ -95,6 +119,24 @@ void Main_EventHandler()
 	SDL_Event event;
 
 	while (SDL_PollEvent(&event))
+	{
+		toggleTouchControls = 1;
+		// Toggle touch controls on or off based if there is touch input
+		if ((event.type == SDL_FINGERDOWN || event.type == SDL_FINGERUP || event.type == SDL_FINGERMOTION) && toggleTouchControls != 1)
+		{
+			toggleTouchControls = 1;
+		}
+		if ((event.type == SDL_KEYDOWN) && toggleTouchControls == 1) // TODO make a touch control button for this if since the touch controls send internal events
+		{
+			// toggleTouchControls = 0;
+		}
+
+		// Handle virtual joystick in one place
+		// if (toggleTouchControls) handle_virtual_joystick(&event);
+		if (toggleTouchControls)
+			handle_touch_inputs(&event);
+			handle_arrow_buttons_pressed(&event);
+
 		switch (event.type)
 		{
 		case SDL_QUIT:
@@ -102,41 +144,65 @@ void Main_EventHandler()
 			SDL_Quit();
 			exit(0);
 			break;
-		case SDL_MOUSEMOTION: /* Read/Update internal mouse position */
+
+		case SDL_MOUSEMOTION:
 			input.motion_x += event.motion.xrel;
 			input.motion_y += event.motion.yrel;
 			input.abs_x = event.motion.x;
 			input.abs_y = event.motion.y;
 			break;
+
 		case SDL_MOUSEBUTTONDOWN:
-			// hacky fix for the system map glitch in the original game
-			if (event.button.button == SDL_BUTTON_LEFT)
+			if (toggleTouchControls == 0)
 			{
-				int x = event.button.x;
-				int y = event.button.y;
-				const int HitRegionSize = 30;
-
-				if (x >= 33 && x <= 33 + HitRegionSize && y >= screen_h - HitRegionSize && y <= screen_h)
+				// hacky fix for the system map view left click
+				if (systemview_button(&event))
 				{
-					SDL_Keysym sdlkey = { .sym = 1073741883 };
-
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
 					break;
 				}
 			}
+			else
+			{
+				if (fn_button_pressed(&event))
+				{
+					break;
+				}
+				if (pause_button_pressed(&event))
+				{
+					break;
+				}
+				// if (arrow_button_pressed(&event))
+				// {
+				// 	break;
+				// }
+			}
 			Input_MousePress(event.button.button);
 			break;
+
 		case SDL_MOUSEBUTTONUP:
 			Input_MouseRelease(event.button.button);
 			break;
+
 		case SDL_KEYDOWN:
+			if ((event.key.keysym.sym == SDLK_m) &&
+				(event.key.keysym.mod & (KMOD_LCTRL | KMOD_RCTRL)))
+			{
+				toggleRightClick = !toggleRightClick;
+
+				if (toggleRightClick)
+					Input_MousePress(SDL_BUTTON_RIGHT);
+				else
+					Input_MouseRelease(SDL_BUTTON_RIGHT);
+			}
 			Keymap_KeyDown(&event.key.keysym);
 			break;
+
 		case SDL_KEYUP:
 			Keymap_KeyUp(&event.key.keysym);
 			break;
 		}
+	}
+
 	Input_Update();
 }
 

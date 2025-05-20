@@ -10,6 +10,8 @@
 #include "renderer.h"
 #include "input.h"
 
+#include "touch_input.h"
+
 unsigned long VideoBase;	/* Base address in ST Ram for screen(read on each VBL) */
 unsigned char *VideoRaster; /* Pointer to Video raster, after VideoBase in PC address space. Use to copy data on HBL */
 
@@ -211,7 +213,7 @@ static int DrawChar(int col, int xoffset, char *scrline, int chr)
 	char *pix;
 	int i;
 
-	font_pos = (const char*)font_bmp;
+	font_pos = (const char *)font_bmp;
 	font_pos += (chr & 0xff) * 10;
 	scrline += xoffset;
 
@@ -282,7 +284,7 @@ void Nu_QueueDrawStr()
 {
 	assert(queued_string_pos < MAX_QUEUED_STRINGS);
 	// strncpy(queued_strings[queued_string_pos].str, GetReg(REG_A0) + STRam, 64);
-	strncpy((char*)queued_strings[queued_string_pos].str, (char*)(GetReg(REG_A0) + STRam), 64);
+	strncpy((char *)queued_strings[queued_string_pos].str, (char *)(GetReg(REG_A0) + STRam), 64);
 	// strncpy_s((char*)queued_strings[queued_string_pos].str, 64, GetReg(REG_A0) + STRam, 64);
 	queued_strings[queued_string_pos].x = GetReg(REG_D1);
 	queued_strings[queued_string_pos].y = GetReg(REG_D2);
@@ -352,70 +354,201 @@ void Screen_ToggleRenderer()
 		use_renderer = 0;
 }
 
-static void draw_control_panel() {
-    // Draw text (unchanged)
-    int temp = logscreen2;
-    logscreen2 = physcreen;
-    for (int i = 0; i < queued_string_pos; i++) {
-        DrawStr(queued_strings[i].x, queued_strings[i].y, queued_strings[i].col, queued_strings[i].str, FALSE);
-    }
-    logscreen2 = temp;
+// ======================================================================================================
 
-    // Lock texture
-    void *pixels;
-    int pitch;
-    if (SDL_LockTexture(sdlTexture, NULL, &pixels, &pitch)) {
-        return;
-    }
+void DrawThickCircleOutline(SDL_Renderer *renderer, int cx, int cy, int radius, int thickness, SDL_Color color)
+{
+	SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+	const int segments = 64;
 
-    uint16_t *dst = (uint16_t *)pixels;
-    uint8_t *src = VideoRaster;
-    // uint8_t *src;
+	for (int i = 0; i < segments; i++)
+	{
+		float theta = (float)i / segments * 2.0f * M_PI;
+		int x = cx + (int)(radius * cosf(theta));
+		int y = cy + (int)(radius * sinf(theta));
 
-    // Precompute RGB565 palettes ONCE (reuse MainRGBPalette)
-    static uint16_t main_pal_rgb565[256], ctrl_pal_rgb565[16];
-    for (int i = 0; i < 256; i++) {
-        uint32_t col = MainRGBPalette[i];
-        main_pal_rgb565[i] = ((col >> 8) & 0xF800) | ((col >> 5) & 0x07E0) | ((col >> 3) & 0x001F);
-    }
-    for (int i = 0; i < 16; i++) {
-        uint32_t col = CtrlRGBPalette[i];
-        ctrl_pal_rgb565[i] = ((col >> 8) & 0xF800) | ((col >> 5) & 0x07E0) | ((col >> 3) & 0x001F);
-    }
-    main_pal_rgb565[255] = 0x0000; // Force transparency
-
-    // Process all lines
-    for (int y = 0; y < 200; y++) {
-        uint16_t *row = dst + y * (pitch / 2);
-        const uint16_t *pal = (y < 168) ? main_pal_rgb565 : ctrl_pal_rgb565;
-
-        // Process 4 pixels at a time (reduces loop overhead)
-        for (int x = 0; x < 320; x += 4) {
-            row[x+0] = pal[src[y*320 + x+0]];
-            row[x+1] = pal[src[y*320 + x+1]];
-            row[x+2] = pal[src[y*320 + x+2]];
-            row[x+3] = pal[src[y*320 + x+3]];
-        }
-    }
-
-    SDL_UnlockTexture(sdlTexture);
-    SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
-
-	// // Draw a red rectangle overlay
-    // SDL_SetRenderDrawColor(sdlRenderer, 255, 0, 0, 255);  // Red color
-	// const int size = 30;
-    // SDL_Rect redRect = { 33, screen_h - size, size, size };               // Rectangle position and size
-    // SDL_RenderFillRect(sdlRenderer, &redRect);
+		// Draw a small filled rectangle/circle at each point
+		SDL_Rect dot = {x - thickness / 2, y - thickness / 2, thickness, thickness};
+		SDL_RenderFillRect(renderer, &dot);
+	}
 }
 
-void BuildRGBPalette(unsigned int *rgb, unsigned short *st, int len) {
-    for (int i = 0; i < len; i++) {
-        unsigned short st_col = st[i];
-        unsigned int r = ((st_col >> 8) & 0x0f) * 17;
-        unsigned int g = ((st_col >> 4) & 0x0f) * 17;
-        unsigned int b = (st_col & 0x0f) * 17;
-        rgb[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
-    }
+void RenderVirtualJoystick(SDL_Renderer *renderer)
+{
+	// SDL_Color baseColor = {139, 137, 139, 255};
+	SDL_Color knobColor = {139, 137, 139, 255};
+
+	int baseThickness = 3;
+	int knobThickness = 4;
+
+	// Draw base outline
+	// DrawThickCircleOutline(renderer, vjoy.base_x, vjoy.base_y, vjoy.radius, baseThickness, baseColor);
+
+	if (vjoy.active)
+	{
+		// Draw knob outline
+		DrawThickCircleOutline(renderer, vjoy.knob_x, vjoy.knob_y, vjoy.radius / 2, knobThickness, knobColor);
+	}
+}
+
+// Function to draw an arrow
+void drawArrow(SDL_Renderer *renderer, int x, int y, int width, int height, SDL_Color color, int direction, int lineWidth)
+{
+	// Draw the square
+	SDL_Rect square = {x, y, width, height};
+	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0); // Transparent background
+	SDL_RenderDrawRect(renderer, &square);
+
+	// Draw the arrow
+	SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+	int arrowWidth = width / 2;
+	int arrowHeight = height / 2;
+
+	for (int i = -lineWidth / 2; i <= lineWidth / 2; i++)
+	{
+		switch (direction)
+		{
+		case 0: // Up arrow
+			SDL_RenderDrawLine(renderer, x + width / 2 + i, y + height, x + width / 2 - arrowWidth + i, y + arrowHeight);
+			SDL_RenderDrawLine(renderer, x + width / 2 + i, y + height, x + width / 2 + arrowWidth + i, y + arrowHeight);
+			SDL_RenderDrawLine(renderer, x + width / 2 - arrowWidth + i, y + arrowHeight, x + width / 2 + arrowWidth + i, y + arrowHeight);
+			break;
+		case 1: // Right arrow
+			SDL_RenderDrawLine(renderer, x + i, y + height / 2, x + arrowWidth + i, y + height / 2 - arrowHeight);
+			SDL_RenderDrawLine(renderer, x + i, y + height / 2, x + arrowWidth + i, y + height / 2 + arrowHeight);
+			SDL_RenderDrawLine(renderer, x + arrowWidth + i, y + height / 2 - arrowHeight, x + arrowWidth + i, y + height / 2 + arrowHeight);
+			break;
+		case 2: // Down arrow
+			SDL_RenderDrawLine(renderer, x + width / 2 + i, y, x + width / 2 - arrowWidth + i, y + arrowHeight);
+			SDL_RenderDrawLine(renderer, x + width / 2 + i, y, x + width / 2 + arrowWidth + i, y + arrowHeight);
+			SDL_RenderDrawLine(renderer, x + width / 2 - arrowWidth + i, y + arrowHeight, x + width / 2 + arrowWidth + i, y + arrowHeight);
+			break;
+		case 3: // Left arrow
+			SDL_RenderDrawLine(renderer, x + width + i, y + height / 2, x + width - arrowWidth + i, y + height / 2 - arrowHeight);
+			SDL_RenderDrawLine(renderer, x + width + i, y + height / 2, x + width - arrowWidth + i, y + height / 2 + arrowHeight);
+			SDL_RenderDrawLine(renderer, x + width - arrowWidth + i, y + height / 2 - arrowHeight, x + width - arrowWidth + i, y + height / 2 + arrowHeight);
+			break;
+		}
+	}
+}
+
+void draw_touch_controls()
+{
+	RenderVirtualJoystick(sdlRenderer);
+
+	if (toggle_arrow_keys_touch)
+	{
+		SDL_Color color = {255, 255, 255, 255};
+		// Define the origin point (x, y) of the arrow group
+		int originX = 50;
+		int originY = 300;
+		int size = 35;
+
+		// Define the offset of each arrow from the origin
+		int arrowSpacing = 40;
+
+		// Draw the arrows relative to the origin
+		drawArrow(sdlRenderer, originX, originY, size, size, color, 0, 2);				  // down arrow
+		drawArrow(sdlRenderer, originX - arrowSpacing, originY, size, size, color, 1, 2); // left arrow
+		drawArrow(sdlRenderer, originX, originY - arrowSpacing, size, size, color, 2, 2); // up arrow
+		drawArrow(sdlRenderer, originX + arrowSpacing, originY, size, size, color, 3, 2); // right arrow
+	}
+
+	drawArrow(sdlRenderer, arrow_buttons[0].x, arrow_buttons[0].y, arrow_buttons[0].width, arrow_buttons[0].height, arrow_buttons[0].color, arrow_buttons[0].index, 2);
+}
+
+void draw_debug_blocks()
+{
+	for (int i = 0; i < sizeof(fn_buttons) / sizeof(fn_buttons[0]); i++)
+	{
+		SDL_SetRenderDrawColor(sdlRenderer, fn_buttons[i].debug_color.r, fn_buttons[i].debug_color.g, fn_buttons[i].debug_color.b, fn_buttons[i].debug_color.a);
+		SDL_Rect blockRect = {fn_buttons[i].x, fn_buttons[i].y, fn_buttons[i].width, fn_buttons[i].height};
+		SDL_RenderDrawRect(sdlRenderer, &blockRect);
+	}
+
+	SDL_SetRenderDrawColor(sdlRenderer, pause_button.debug_color.r, pause_button.debug_color.g, pause_button.debug_color.b, pause_button.debug_color.a);
+	SDL_Rect pauseRect = {pause_button.x, pause_button.y, pause_button.width, pause_button.height};
+	SDL_RenderDrawRect(sdlRenderer, &pauseRect);
+}
+
+static void draw_on_top_of_screen()
+{
+	if (toggleTouchControls)
+		draw_touch_controls();
+	// draw_debug_blocks();
+}
+
+// ======================================================================================================
+
+static void draw_control_panel()
+{
+	// Draw text (unchanged)
+	int temp = logscreen2;
+	logscreen2 = physcreen;
+	for (int i = 0; i < queued_string_pos; i++)
+	{
+		DrawStr(queued_strings[i].x, queued_strings[i].y, queued_strings[i].col, queued_strings[i].str, FALSE);
+	}
+	logscreen2 = temp;
+
+	// Lock texture
+	void *pixels;
+	int pitch;
+	if (SDL_LockTexture(sdlTexture, NULL, &pixels, &pitch))
+	{
+		return;
+	}
+
+	uint16_t *dst = (uint16_t *)pixels;
+	uint8_t *src = VideoRaster;
+	// uint8_t *src;
+
+	// Precompute RGB565 palettes ONCE (reuse MainRGBPalette)
+	static uint16_t main_pal_rgb565[256], ctrl_pal_rgb565[16];
+	for (int i = 0; i < 256; i++)
+	{
+		uint32_t col = MainRGBPalette[i];
+		main_pal_rgb565[i] = ((col >> 8) & 0xF800) | ((col >> 5) & 0x07E0) | ((col >> 3) & 0x001F);
+	}
+	for (int i = 0; i < 16; i++)
+	{
+		uint32_t col = CtrlRGBPalette[i];
+		ctrl_pal_rgb565[i] = ((col >> 8) & 0xF800) | ((col >> 5) & 0x07E0) | ((col >> 3) & 0x001F);
+	}
+	main_pal_rgb565[255] = 0x0000; // Force transparency
+
+	// Process all lines
+	for (int y = 0; y < 200; y++)
+	{
+		uint16_t *row = dst + y * (pitch / 2);
+		const uint16_t *pal = (y < 168) ? main_pal_rgb565 : ctrl_pal_rgb565;
+
+		// Process 4 pixels at a time (reduces loop overhead)
+		for (int x = 0; x < 320; x += 4)
+		{
+			row[x + 0] = pal[src[y * 320 + x + 0]];
+			row[x + 1] = pal[src[y * 320 + x + 1]];
+			row[x + 2] = pal[src[y * 320 + x + 2]];
+			row[x + 3] = pal[src[y * 320 + x + 3]];
+		}
+	}
+
+	SDL_UnlockTexture(sdlTexture);
+	SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
+
+	draw_on_top_of_screen();
+}
+
+void BuildRGBPalette(unsigned int *rgb, unsigned short *st, int len)
+{
+	for (int i = 0; i < len; i++)
+	{
+		unsigned short st_col = st[i];
+		unsigned int r = ((st_col >> 8) & 0x0f) * 17;
+		unsigned int g = ((st_col >> 4) & 0x0f) * 17;
+		unsigned int b = (st_col & 0x0f) * 17;
+		rgb[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
+	}
 }
 
 void Nu_IsGLRenderer()

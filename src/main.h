@@ -187,6 +187,7 @@ extern char szName[];
 extern char szBootDiscImage[MAX_FILENAME_LENGTH];
 extern char szWorkingDir[MAX_FILENAME_LENGTH];
 extern char szCurrentDir[MAX_FILENAME_LENGTH];
+extern bool toggleTouchControls;
 
 extern void Main_SysError(char *Error, char *Title);
 extern int Main_Message(char *lpText, char *lpCaption /*, unsigned int uType*/);

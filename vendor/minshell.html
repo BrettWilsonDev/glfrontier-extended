@@ -1,32 +1,93 @@
 <!doctype html>
 <html lang="en-us">
-  <head>
+
+<head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    
-    <title>web game</title>
-    
-    <meta name="title" content="game name">
-    <meta name="description" content="videogame, developed using sdl videogames library">
-    <meta name="keywords" content="sdl, games, html5, programming, C, C++, library, learn, videogames">
-    <meta name="viewport" content="width=device-width">
-        
-    <!-- Favicon -->
+    <title>Frontier Elite 2 - Play Online | Retro Space Trading Simulation Game</title>
+    <meta name="description"
+        content="Play Frontier Elite 2 online Experience the classic space trading simulation game with native touch controls and a web-based interface.">
+    <meta name="keywords"
+        content="Frontier Elite 2, Frontier Elite 2 play online, Frontier Elite 2 web game, space trading simulation, retro game, classic game, online game, native touch controls, touch mod">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Brett Wilson DEV">
     <link rel="shortcut icon" href="https://www.libsdl.org/favicon.ico">
-    
     <style>
-        body { 
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            /* Safari */
+            -ms-user-select: none;
+            /* IE10+ */
+        }
+
+        body {
             margin: 0px;
             text-align: center;
+            background-color: black;
         }
-        canvas.emscripten { border: 0px none; background-color: black; }
 
         canvas.emscripten {
-            width: 98%;
-            height: 98%;
+            width: 98vw;
+            height: 98vh;
+            border: 0px none;
+            background-color: black;
+        }
+
+        @media (max-width: 400px) {
+            body::before {
+                content: "This game may not display properly on small screens.";
+                color: white;
+                display: block;
+                padding: 1rem;
+            }
+        }
+
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: black;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            font-family: Arial, sans-serif;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+
+        .spinner {
+            border: 6px solid rgba(255, 255, 255, 0.2);
+            border-top: 6px solid white;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
     </style>
-    <script type='text/javascript' src="https://cdn.jsdelivr.net/gh/eligrey/FileSaver.js/dist/FileSaver.min.js"> </script>
+</head>
+
+<body>
+    <script type='text/javascript'
+        src="https://cdn.jsdelivr.net/gh/eligrey/FileSaver.js/dist/FileSaver.min.js"> </script>
     <script type='text/javascript'>
         function saveFileFromMEMFSToDisk(memoryFSname, localFSname)     // This can be called by C/C++ code
         {
@@ -44,31 +105,62 @@
             // If you enable this setting it would always ask you and bring the SaveAsDialog
             saveAs(blob, localFSname);
         }
+
+        // Fullscreen request function for the canvas
+        function goFullScreen() {
+            var canvas = document.getElementById('canvas');
+            var request = canvas.requestFullscreen || canvas.mozRequestFullScreen || canvas.webkitRequestFullscreen || canvas.msRequestFullscreen;
+            if (request) {
+                request.call(canvas).catch(err => console.error("Fullscreen error:", err));
+            }
+        }
+
+
+        // Attach event listeners on DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', function () {
+            var canvas = document.getElementById('canvas');
+            canvas.addEventListener('click', goFullScreen);
+            canvas.addEventListener('touchstart', goFullScreen);
+        });
     </script>
-    </head>
-    <body>
-        <canvas class=emscripten id=canvas oncontextmenu=event.preventDefault() tabindex=-1></canvas>
-        <p id="output" />
-        <script>
-            var Module = {
-                print: (function() {
-                    var element = document.getElementById('output');
-                    if (element) element.value = ''; // clear browser cache
-                    return function(text) {
-                        if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
-                        console.log(text);
-                        if (element) {
-                          element.value += text + "\n";
-                          element.scrollTop = element.scrollHeight; // focus on bottom
-                        }
-                    };
-                })(),            
-                canvas: (function() {
-                    var canvas = document.getElementById('canvas');
-                    return canvas;
-                })()
-            };
-        </script>
-        {{{ SCRIPT }}}
-    </body>
+    <main>
+        <div id="loading">
+            <div class="spinner"></div>
+            <p>Loading <strong>Frontier Elite 2</strong>...</p>
+        </div>
+
+        <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1">
+            Your browser does not support HTML5 canvas. Please use a modern browser.
+        </canvas>
+    </main>
+    <p id="output"></p>
+    <noscript>Please enable JavaScript to play the game.</noscript>
+    <script>
+        var Module = {
+            onRuntimeInitialized: function () {
+                document.getElementById('loading').style.display = 'none';
+            },
+            print: (function () {
+                var element = document.getElementById('output');
+                if (element) element.value = '';
+                return function (text) {
+                    if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+                    console.log(text);
+                    if (element) {
+                        element.value += text + "\n";
+                        element.scrollTop = element.scrollHeight;
+                    }
+                };
+            })(),
+            canvas: (function () {
+                var canvas = document.getElementById('canvas');
+                canvas.width = 640;
+                canvas.height = 480;
+                return canvas;
+            })()
+        };
+    </script>
+    {{{ SCRIPT }}}
+</body>
+
 </html>
