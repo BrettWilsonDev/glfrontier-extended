@@ -7,8 +7,6 @@
 
 #include "SDL_keyboard.h"
 
-// bool toggleRightClickTouch = FALSE;
-
 int toggle_arrow_keys_touch = FALSE;
 
 VirtualJoystick vjoy = {550, 300, 60, 550, 300, 0, 0.0f, 0.0f};
@@ -53,20 +51,6 @@ void init_touch_buttons()
 			{.scancode = SDL_SCANCODE_F6, .sym = SDLK_F6},
 		};
 
-		int pressed_max[] = {
-			// left side
-			2, // f1 0
-			1, // f2 1 galaxy map
-			0, // f3 2
-			0, // f4 3
-			// right side
-			0, // f10 4
-			0, // f9 5
-			0, // f8 6
-			0, // f7 7
-			0, // f6 8
-		};
-
 		for (int i = 0; i < sizeof(fn_buttons) / sizeof(fn_buttons[0]); i++)
 		{
 			if (i < 4)
@@ -79,8 +63,6 @@ void init_touch_buttons()
 				fn_buttons[i].height = left_size;
 				fn_buttons[i].debug_color = colors[i];
 				fn_buttons[i].sdlkey = keys[i];
-				fn_buttons[i].times_pressed = 0;
-				fn_buttons[i].times_pressed_max = pressed_max[i];
 			}
 			else
 			{
@@ -92,8 +74,6 @@ void init_touch_buttons()
 				fn_buttons[i].height = right_size;
 				fn_buttons[i].debug_color = colors[i - 4];
 				fn_buttons[i].sdlkey = keys[i];
-				fn_buttons[i].times_pressed = 0;
-				fn_buttons[i].times_pressed_max = pressed_max[i];
 			}
 		}
 
@@ -194,11 +174,45 @@ int handle_arrow_buttons_pressed(SDL_Event *event)
 			{
 				SDL_Keysym sdlkey = arrow_buttons[i].sdlkey;
 
+				// why you might be wondering... Well in the words of Tom Morton "hack hack hack" :-)
+				// we do this because the 3d person view is super sensitive to arrow key input for some reason
 				if (event->type == SDL_MOUSEBUTTONDOWN)
+				{
 					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyDown(&sdlkey);
+				}
 
 				if (event->type == SDL_MOUSEBUTTONUP)
+				{
 					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+				}
 
 				// printf("Button %d pressed sdlkey: %s \n", i, SDL_GetKeyName(arrow_buttons[i].sdlkey.sym));
 
@@ -231,31 +245,17 @@ int pause_button_pressed(SDL_Event *event)
 
 void update_virtual_joystick(int x, int y)
 {
-	// if ((x >= vjoy.base_x - vjoy.radius) &&
-	//     (x <= vjoy.base_x + vjoy.radius) &&
-	//     (y >= vjoy.base_y - vjoy.radius) &&
-	//     (y <= vjoy.base_y + vjoy.radius))
-	// if(1)
-	// {
 	vjoy.active = 1;
 	vjoy.knob_x = x;
 	vjoy.knob_y = y;
 	vjoy.dx = (x - vjoy.base_x) / (float)vjoy.radius;
 	vjoy.dy = (y - vjoy.base_y) / (float)vjoy.radius;
 
-	// printf("Joystick updated: dx: %.2f, dy: %.2f\n", vjoy.dx, vjoy.dy);
-	// Input_MousePress(SDL_BUTTON_RIGHT);
-
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 	input.cur_mousebut_state |= 0x1;
 	input.cur_mousebut_state &= ~0x2;
 
 	return;
-	// }
-	// else {
-	//     vjoy.active = 0;
-	//     // Input_UnMousePress(SDL_BUTTON_RIGHT);
-	// }
 }
 
 void handle_virtual_joystick(SDL_Event *event)
@@ -266,10 +266,6 @@ void handle_virtual_joystick(SDL_Event *event)
 		if (vjoy_mouse_down)
 		{
 			update_virtual_joystick(event->motion.x, event->motion.y);
-			// input.motion_x = vjoy.dx;
-			// input.motion_y = vjoy.dy;
-			// input.abs_x = vjoy.dx;
-			// input.abs_y = vjoy.dy;
 		}
 		break;
 

@@ -375,14 +375,10 @@ void DrawThickCircleOutline(SDL_Renderer *renderer, int cx, int cy, int radius, 
 
 void RenderVirtualJoystick(SDL_Renderer *renderer)
 {
-	// SDL_Color baseColor = {139, 137, 139, 255};
 	SDL_Color knobColor = {139, 137, 139, 255};
 
 	int baseThickness = 3;
 	int knobThickness = 4;
-
-	// Draw base outline
-	// DrawThickCircleOutline(renderer, vjoy.base_x, vjoy.base_y, vjoy.radius, baseThickness, baseColor);
 
 	if (vjoy.active)
 	{

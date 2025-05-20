@@ -120,22 +120,18 @@ void Main_EventHandler()
 
 	while (SDL_PollEvent(&event))
 	{
-		toggleTouchControls = 1;
 		// Toggle touch controls on or off based if there is touch input
 		if ((event.type == SDL_FINGERDOWN || event.type == SDL_FINGERUP || event.type == SDL_FINGERMOTION) && toggleTouchControls != 1)
 		{
 			toggleTouchControls = 1;
 		}
-		if ((event.type == SDL_KEYDOWN) && toggleTouchControls == 1) // TODO make a touch control button for this if since the touch controls send internal events
-		{
-			// toggleTouchControls = 0;
-		}
 
 		// Handle virtual joystick in one place
-		// if (toggleTouchControls) handle_virtual_joystick(&event);
 		if (toggleTouchControls)
+		{
 			handle_touch_inputs(&event);
 			handle_arrow_buttons_pressed(&event);
+		}
 
 		switch (event.type)
 		{
@@ -171,10 +167,6 @@ void Main_EventHandler()
 				{
 					break;
 				}
-				// if (arrow_button_pressed(&event))
-				// {
-				// 	break;
-				// }
 			}
 			Input_MousePress(event.button.button);
 			break;
