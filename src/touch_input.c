@@ -152,74 +152,71 @@ int fn_button_pressed(SDL_Event *event)
 	return 0;
 }
 
+static int current_arrow_button = -1;
+static int arrow_key_down = 0;
+
 int handle_arrow_buttons_pressed(SDL_Event *event)
 {
 	int x = event->button.x;
 	int y = event->button.y;
-	if (event->button.button == SDL_BUTTON_LEFT)
+
+	if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT)
 	{
-		if (x >= arrow_buttons[0].x && x <= arrow_buttons[0].x + arrow_buttons[0].width && y >= arrow_buttons[0].y && y <= arrow_buttons[0].y + arrow_buttons[0].height)
+		// First click on arrow_buttons[0] acts as toggle if not enabled yet
+		if (!toggle_arrow_keys_touch &&
+			x >= arrow_buttons[0].x && x <= arrow_buttons[0].x + arrow_buttons[0].width &&
+			y >= arrow_buttons[0].y && y <= arrow_buttons[0].y + arrow_buttons[0].height)
 		{
 			toggle_arrow_keys_touch = 1;
+			return 1;
 		}
 
-		if (toggle_arrow_keys_touch == 0)
+		// Only allow arrow buttons if toggle is on
+		if (toggle_arrow_keys_touch)
 		{
-			return 0;
-		}
-
-		for (int i = 0; i < sizeof(arrow_buttons) / sizeof(arrow_buttons[0]); i++)
-		{
-			if (x >= arrow_buttons[i].x && x <= arrow_buttons[i].x + arrow_buttons[i].width && y >= arrow_buttons[i].y && y <= arrow_buttons[i].y + arrow_buttons[i].height)
+			for (int i = 0; i < sizeof(arrow_buttons) / sizeof(arrow_buttons[0]); i++)
 			{
-				SDL_Keysym sdlkey = arrow_buttons[i].sdlkey;
-
-				// why you might be wondering... Well in the words of Tom Morton "hack hack hack" :-)
-				// we do this because the 3d person view is super sensitive to arrow key input for some reason
-				if (event->type == SDL_MOUSEBUTTONDOWN)
+				if (x >= arrow_buttons[i].x && x <= arrow_buttons[i].x + arrow_buttons[i].width &&
+					y >= arrow_buttons[i].y && y <= arrow_buttons[i].y + arrow_buttons[i].height)
 				{
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyDown(&sdlkey);
-					Keymap_KeyDown(&sdlkey);
+					current_arrow_button = i;
+					arrow_key_down = 1;
+
+					SDL_Keysym sdlkey = arrow_buttons[i].sdlkey;
+					for (int j = 0; j < 15; j++) Keymap_KeyDown(&sdlkey);
+					return 1;
 				}
-
-				if (event->type == SDL_MOUSEBUTTONUP)
-				{
-					Keymap_KeyUp(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
-					Keymap_KeyUp(&sdlkey);
-				}
-
-				// printf("Button %d pressed sdlkey: %s \n", i, SDL_GetKeyName(arrow_buttons[i].sdlkey.sym));
-
-				return 1;
 			}
 		}
 	}
+
+	// Release key on mouse up
+	if (event->type == SDL_MOUSEBUTTONUP && current_arrow_button != -1 && arrow_key_down)
+	{
+		SDL_Keysym sdlkey = arrow_buttons[current_arrow_button].sdlkey;
+		for (int j = 0; j < 15; j++) Keymap_KeyUp(&sdlkey);
+
+		current_arrow_button = -1;
+		arrow_key_down = 0;
+		return 1;
+	}
+
+	// Release key if mouse dragged off
+	if (event->type == SDL_MOUSEMOTION && current_arrow_button != -1 && arrow_key_down)
+	{
+		int i = current_arrow_button;
+		if (!(x >= arrow_buttons[i].x && x <= arrow_buttons[i].x + arrow_buttons[i].width &&
+			  y >= arrow_buttons[i].y && y <= arrow_buttons[i].y + arrow_buttons[i].height))
+		{
+			SDL_Keysym sdlkey = arrow_buttons[i].sdlkey;
+			for (int j = 0; j < 15; j++) Keymap_KeyUp(&sdlkey);
+
+			current_arrow_button = -1;
+			arrow_key_down = 0;
+			return 1;
+		}
+	}
+
 	return 0;
 }
 
@@ -265,6 +262,7 @@ void handle_virtual_joystick(SDL_Event *event)
 	case SDL_MOUSEMOTION:
 		if (vjoy_mouse_down)
 		{
+			toggle_arrow_keys_touch = 0;
 			update_virtual_joystick(event->motion.x, event->motion.y);
 		}
 		break;
