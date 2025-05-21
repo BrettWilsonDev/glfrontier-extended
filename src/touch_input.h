@@ -6,8 +6,8 @@
 extern void handle_touch_inputs(SDL_Event *event);
 extern int fn_button_pressed(SDL_Event *event);
 extern int handle_arrow_buttons_pressed(SDL_Event *event);
+extern int handle_thrust_buttons_pressed(SDL_Event *event);
 extern int pause_button_pressed(SDL_Event *event);
-extern int touch_grab_mouse_button(SDL_Event *event);
 extern void update_virtual_joystick(int x, int y);
 extern void handle_virtual_joystick(SDL_Event *event);
 
@@ -20,14 +20,15 @@ typedef struct
     int height; // height of the button
     SDL_Color color; // color of the release view
     SDL_Color debug_color; // color of the debug view
-    int times_pressed; // number of times the button has been pressed
-    int times_pressed_max; // max number of times the button can be pressed
+    // int times_pressed; // number of times the button has been pressed
+    // int times_pressed_max; // max number of times the button can be pressed
     int active; // is the button being touched (bool)
-    SDL_Keysym sdlkey; // SDL_Keysym of the button*
+    SDL_Keysym sdlkey; // SDL_Keysym of the button
 } touch_button;
 
 extern touch_button fn_buttons[9];
 extern touch_button arrow_buttons[4];
+extern touch_button thrust_buttons[4];
 extern touch_button pause_button;
 
 typedef struct {

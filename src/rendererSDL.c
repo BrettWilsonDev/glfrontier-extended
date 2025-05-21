@@ -56,7 +56,7 @@ static void change_vidmode()
 									 SDL_WINDOWPOS_CENTERED, // Center the window
 									 SDL_WINDOWPOS_CENTERED,
 									 screen_w, screen_h,
-									 SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | (bInFullScreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+									 SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | (bInFullScreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) | SDL_WINDOW_ALLOW_HIGHDPI);
 		if (!sdlWindow)
 		{
 			fprintf(stderr, "Window creation failed: %s\n", SDL_GetError());
@@ -107,6 +107,17 @@ void Screen_Init(void)
 	SDL_EventState(SDL_MOUSEBUTTONDOWN, SDL_ENABLE);
 	SDL_EventState(SDL_MOUSEBUTTONUP, SDL_ENABLE);
 	SDL_ShowCursor(SDL_ENABLE);
+
+	int windowW, windowH;
+	SDL_GetWindowSize(sdlWindow, &windowW, &windowH);
+
+	int drawableW, drawableH;
+	SDL_GetRendererOutputSize(sdlRenderer, &drawableW, &drawableH);
+
+	float scaleX = (float)drawableW / windowW;
+	float scaleY = (float)drawableH / windowH;
+
+	SDL_RenderSetScale(sdlRenderer, scaleX, scaleY);
 }
 
 void Screen_UnInit(void)
@@ -377,7 +388,7 @@ void RenderVirtualJoystick(SDL_Renderer *renderer)
 {
 	SDL_Color knobColor = {139, 137, 139, 255};
 
-	int baseThickness = 3;
+	// int baseThickness = 3;
 	int knobThickness = 4;
 
 	if (vjoy.active)
@@ -390,43 +401,145 @@ void RenderVirtualJoystick(SDL_Renderer *renderer)
 // Function to draw an arrow
 void drawArrow(SDL_Renderer *renderer, int x, int y, int width, int height, SDL_Color color, int direction, int lineWidth)
 {
-	// Draw the square
+    SDL_Rect square = {x, y, width, height};
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    SDL_RenderDrawRect(renderer, &square);
+
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+
+    // Use float for safe math
+    float centerX = x + width / 2.0f;
+    float centerY = y + height / 2.0f;
+    float padding = fmaxf(2.0f, fminf(width, height) / 6.0f); // Never less than 2px
+
+    float aw = fmaxf(3.0f, (width - 2 * padding) / 2.0f); // Arrow half-width
+    float ah = fmaxf(3.0f, (height - 2 * padding) / 2.0f); // Arrow half-height
+
+    for (int i = -lineWidth / 2; i <= lineWidth / 2; i++)
+    {
+        float offset = (float)i;
+
+        switch (direction)
+        {
+        case 0: // Up
+            SDL_RenderDrawLineF(renderer, centerX + offset, y + height - padding, centerX - aw + offset, centerY);
+            SDL_RenderDrawLineF(renderer, centerX + offset, y + height - padding, centerX + aw + offset, centerY);
+            SDL_RenderDrawLineF(renderer, centerX - aw + offset, centerY, centerX + aw + offset, centerY);
+            break;
+
+        case 1: // Right
+            SDL_RenderDrawLineF(renderer, x + padding, centerY + offset, centerX, centerY - ah + offset);
+            SDL_RenderDrawLineF(renderer, x + padding, centerY + offset, centerX, centerY + ah + offset);
+            SDL_RenderDrawLineF(renderer, centerX, centerY - ah + offset, centerX, centerY + ah + offset);
+            break;
+
+        case 2: // Down
+            SDL_RenderDrawLineF(renderer, centerX + offset, y + padding, centerX - aw + offset, centerY);
+            SDL_RenderDrawLineF(renderer, centerX + offset, y + padding, centerX + aw + offset, centerY);
+            SDL_RenderDrawLineF(renderer, centerX - aw + offset, centerY, centerX + aw + offset, centerY);
+            break;
+
+        case 3: // Left
+            SDL_RenderDrawLineF(renderer, x + width - padding + offset, centerY, centerX, centerY - ah + offset);
+            SDL_RenderDrawLineF(renderer, x + width - padding + offset, centerY, centerX, centerY + ah + offset);
+            SDL_RenderDrawLineF(renderer, centerX, centerY - ah + offset, centerX, centerY + ah + offset);
+            break;
+        }
+    }
+}
+
+void drawThrustSymbol(SDL_Renderer *renderer, int x, int y, int width, int height, SDL_Color color, int direction, int lineWidth)
+{
 	SDL_Rect square = {x, y, width, height};
-	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0); // Transparent background
+	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0); // transparent outline
 	SDL_RenderDrawRect(renderer, &square);
 
-	// Draw the arrow
 	SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-	int arrowWidth = width / 2;
-	int arrowHeight = height / 2;
 
-	for (int i = -lineWidth / 2; i <= lineWidth / 2; i++)
+	int centerX = x + width / 2;
+	int centerY = y + height / 2;
+	int padding = 6; // a bit more padding so flames stay nicely inside
+
+	// Make flames bigger:
+	int baseFlameWidth = width / 4;	  // wider base
+	int baseFlameLength = height / 2; // longer flames
+
+	// Flicker effect lengths (varying sizes)
+	int flameLengths[3] = {
+		baseFlameLength,
+		(int)(baseFlameLength * 0.8),
+		(int)(baseFlameLength * 0.6)};
+
+	// Smaller spacing to keep flames grouped nicely
+	int spacing = baseFlameWidth / 1.5;
+
+	for (int j = -1; j <= 1; ++j)
 	{
+		int flameLength = flameLengths[j + 1]; // pick different lengths
+
+		SDL_Point points[4];
+
 		switch (direction)
 		{
-		case 0: // Up arrow
-			SDL_RenderDrawLine(renderer, x + width / 2 + i, y + height, x + width / 2 - arrowWidth + i, y + arrowHeight);
-			SDL_RenderDrawLine(renderer, x + width / 2 + i, y + height, x + width / 2 + arrowWidth + i, y + arrowHeight);
-			SDL_RenderDrawLine(renderer, x + width / 2 - arrowWidth + i, y + arrowHeight, x + width / 2 + arrowWidth + i, y + arrowHeight);
-			break;
-		case 1: // Right arrow
-			SDL_RenderDrawLine(renderer, x + i, y + height / 2, x + arrowWidth + i, y + height / 2 - arrowHeight);
-			SDL_RenderDrawLine(renderer, x + i, y + height / 2, x + arrowWidth + i, y + height / 2 + arrowHeight);
-			SDL_RenderDrawLine(renderer, x + arrowWidth + i, y + height / 2 - arrowHeight, x + arrowWidth + i, y + height / 2 + arrowHeight);
-			break;
-		case 2: // Down arrow
-			SDL_RenderDrawLine(renderer, x + width / 2 + i, y, x + width / 2 - arrowWidth + i, y + arrowHeight);
-			SDL_RenderDrawLine(renderer, x + width / 2 + i, y, x + width / 2 + arrowWidth + i, y + arrowHeight);
-			SDL_RenderDrawLine(renderer, x + width / 2 - arrowWidth + i, y + arrowHeight, x + width / 2 + arrowWidth + i, y + arrowHeight);
-			break;
-		case 3: // Left arrow
-			SDL_RenderDrawLine(renderer, x + width + i, y + height / 2, x + width - arrowWidth + i, y + height / 2 - arrowHeight);
-			SDL_RenderDrawLine(renderer, x + width + i, y + height / 2, x + width - arrowWidth + i, y + height / 2 + arrowHeight);
-			SDL_RenderDrawLine(renderer, x + width - arrowWidth + i, y + height / 2 - arrowHeight, x + width - arrowWidth + i, y + height / 2 + arrowHeight);
+		case 0: // UP
+		{
+			int fx = centerX + j * spacing;
+			int fy = y + padding;
+
+			points[0].x = fx - baseFlameWidth / 2;
+			points[0].y = fy + flameLength;
+			points[1].x = fx;
+			points[1].y = fy;
+			points[2].x = fx + baseFlameWidth / 2;
+			points[2].y = fy + flameLength;
 			break;
 		}
+		case 1: // RIGHT
+		{
+			int fx = x + width - padding - flameLength;
+			int fy = centerY + j * spacing;
+
+			points[0].x = fx;
+			points[0].y = fy - baseFlameWidth / 2;
+			points[1].x = fx + flameLength;
+			points[1].y = fy;
+			points[2].x = fx;
+			points[2].y = fy + baseFlameWidth / 2;
+			break;
+		}
+		case 2: // DOWN
+		{
+			int fx = centerX + j * spacing;
+			int fy = y + height - padding - flameLength;
+
+			points[0].x = fx - baseFlameWidth / 2;
+			points[0].y = fy;
+			points[1].x = fx;
+			points[1].y = fy + flameLength;
+			points[2].x = fx + baseFlameWidth / 2;
+			points[2].y = fy;
+			break;
+		}
+		case 3: // LEFT
+		{
+			int fx = x + padding;
+			int fy = centerY + j * spacing;
+
+			points[0].x = fx + flameLength;
+			points[0].y = fy - baseFlameWidth / 2;
+			points[1].x = fx;
+			points[1].y = fy;
+			points[2].x = fx + flameLength;
+			points[2].y = fy + baseFlameWidth / 2;
+			break;
+		}
+		}
+
+		points[3] = points[0];
+		SDL_RenderDrawLines(renderer, points, 4);
 	}
 }
+
 
 void draw_touch_controls()
 {
@@ -434,14 +547,14 @@ void draw_touch_controls()
 
 	if (toggle_arrow_keys_touch)
 	{
-		SDL_Color color = {255, 255, 255, 255};
+		SDL_Color color = arrow_buttons[0].color;
 		// Define the origin point (x, y) of the arrow group
-		int originX = 50;
-		int originY = 300;
-		int size = 35;
+		int originX = arrow_buttons[0].x;
+		int originY = arrow_buttons[0].y;
+		int size = arrow_buttons[0].width;
 
 		// Define the offset of each arrow from the origin
-		int arrowSpacing = 40;
+		int arrowSpacing = arrow_buttons[0].height;
 
 		// Draw the arrows relative to the origin
 		drawArrow(sdlRenderer, originX, originY, size, size, color, 0, 2);				  // down arrow
@@ -450,7 +563,25 @@ void draw_touch_controls()
 		drawArrow(sdlRenderer, originX + arrowSpacing, originY, size, size, color, 3, 2); // right arrow
 	}
 
-	drawArrow(sdlRenderer, arrow_buttons[0].x, arrow_buttons[0].y, arrow_buttons[0].width, arrow_buttons[0].height, arrow_buttons[0].color, arrow_buttons[0].index, 2);
+	drawArrow(sdlRenderer, arrow_buttons[0].x, arrow_buttons[0].y, arrow_buttons[0].width, arrow_buttons[0].width, arrow_buttons[0].color, arrow_buttons[0].index, 2);
+
+	// if (toggle_arrow_keys_touch)
+	// {
+	SDL_Color color = thrust_buttons[0].color;
+	// Define the origin point (x, y) of the arrow group
+	int originX = thrust_buttons[0].x;
+	int originY = thrust_buttons[0].y;
+	int size = thrust_buttons[0].width;
+
+	// Define the offset of each arrow from the origin
+	int spacing = thrust_buttons[0].height;
+
+	// Draw the arrows relative to the origin
+	drawThrustSymbol(sdlRenderer, originX, originY, size, size, color, 0, 2);				   // down arrow
+	drawThrustSymbol(sdlRenderer, originX - spacing, originY - (30), size, size, color, 1, 2); // left arrow
+	drawThrustSymbol(sdlRenderer, originX, originY - spacing, size, size, color, 2, 2);		   // up arrow
+	drawThrustSymbol(sdlRenderer, originX + spacing, originY - (30), size, size, color, 3, 2); // right arrow
+																							   // }
 }
 
 void draw_debug_blocks()

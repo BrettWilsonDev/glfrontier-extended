@@ -13,10 +13,11 @@ VirtualJoystick vjoy = {550, 300, 60, 550, 300, 0, 0.0f, 0.0f};
 
 touch_button fn_buttons[] = {}; // initialized in init_fn_buttons
 touch_button arrow_buttons[] = {};
+touch_button thrust_buttons[] = {};
 
 touch_button pause_button = {};
 
-// used to determine if init_fn_buttons has been called once only
+// used to determine if init_touch_buttons has been called once only
 static int init_touch_buttons_called = 0;
 void init_touch_buttons()
 {
@@ -24,7 +25,7 @@ void init_touch_buttons()
 	{
 		init_touch_buttons_called = 1;
 
-		pause_button = (touch_button){0, 0, screen_h - 53, 20, 20, {0, 0, 0, 0}, {0, 255, 0, 255}, 0, 0, 0};
+		pause_button = (touch_button){0, 0, screen_h - 53, 20, 20, {0, 0, 0, 0}, {0, 255, 0, 255}, 0, {.scancode = SDL_SCANCODE_ESCAPE, .sym = SDLK_ESCAPE}};
 
 		const int left_size = 33;
 		const int right_size = 32;
@@ -113,9 +114,47 @@ void init_touch_buttons()
 				break;
 			}
 			arrow_buttons[i].width = size;
-			arrow_buttons[i].height = size;
+			arrow_buttons[i].height = arrowSpacing;
 			arrow_buttons[i].color = color;
 			arrow_buttons[i].sdlkey = arrow_keys[i];
+		};
+
+		SDL_Color color_thrust = {255, 255, 255, 255};
+		originX = screen_w - 100;
+		originY = 300;
+		size = 35;
+		int Spacing = 40;
+
+		for (int i = 0; i < sizeof(thrust_buttons) / sizeof(thrust_buttons[0]); i++)
+		{
+			thrust_buttons[i].index = i;
+			switch (i)
+			{
+			case 0: // down arrow
+				thrust_buttons[i].x = originX;
+				thrust_buttons[i].y = originY;
+				thrust_buttons[i].sdlkey = (SDL_Keysym){.scancode = SDL_SCANCODE_LSHIFT, .sym = SDLK_RSHIFT};
+				break;
+			case 1: // left arrow
+				thrust_buttons[i].x = originX - Spacing;
+				thrust_buttons[i].y = originY - (30);
+				thrust_buttons[i].sdlkey = (SDL_Keysym){.scancode = SDL_SCANCODE_COMMA, .sym = SDLK_COMMA};
+				break;
+			case 2: // up arrow
+				thrust_buttons[i].x = originX;
+				thrust_buttons[i].y = originY - Spacing;
+				thrust_buttons[i].sdlkey = (SDL_Keysym){.scancode = SDL_SCANCODE_RETURN, .sym = SDLK_RETURN};
+				break;
+			case 3: // right arrow
+				thrust_buttons[i].x = originX + Spacing;
+				thrust_buttons[i].y = originY - (30);
+				thrust_buttons[i].sdlkey = (SDL_Keysym){.scancode = SDL_SCANCODE_PERIOD, .sym = SDLK_PERIOD};
+				break;
+			}
+			thrust_buttons[i].width = size;
+			thrust_buttons[i].height = Spacing;
+			thrust_buttons[i].color = color_thrust;
+			// thrust_buttons[i].sdlkey = arrow_keys[i];
 		}
 	}
 }
@@ -144,6 +183,16 @@ int fn_button_pressed(SDL_Event *event)
 				// printf("Button %d pressed sdlkey: %s times pressed ctr %d max ctr %d\n", i, SDL_GetKeyName(fn_buttons[i].sdlkey.sym), fn_buttons[i].times_pressed, fn_buttons[i].times_pressed_max);
 
 				toggle_arrow_keys_touch = 0;
+
+				if (i == 0)
+				{
+					fn_buttons[i].active = 1;
+				}
+
+				if (i != 0)
+				{
+					fn_buttons[0].active = 0;
+				}
 
 				return 1;
 			}
@@ -183,7 +232,16 @@ int handle_arrow_buttons_pressed(SDL_Event *event)
 					arrow_key_down = 1;
 
 					SDL_Keysym sdlkey = arrow_buttons[i].sdlkey;
-					for (int j = 0; j < 15; j++) Keymap_KeyDown(&sdlkey);
+					if (fn_buttons[0].active && !fn_buttons[1].active)
+					{
+						printf("active\n");
+						for (int j = 0; j < 15; j++)
+							Keymap_KeyDown(&sdlkey);
+					}
+					else
+					{
+						Keymap_KeyDown(&sdlkey);
+					}
 					return 1;
 				}
 			}
@@ -192,9 +250,18 @@ int handle_arrow_buttons_pressed(SDL_Event *event)
 
 	// Release key on mouse up
 	if (event->type == SDL_MOUSEBUTTONUP && current_arrow_button != -1 && arrow_key_down)
+	// if (event->type == SDL_MOUSEBUTTONUP && current_arrow_button != -1)
 	{
 		SDL_Keysym sdlkey = arrow_buttons[current_arrow_button].sdlkey;
-		for (int j = 0; j < 15; j++) Keymap_KeyUp(&sdlkey);
+		if (fn_buttons[0].active && !fn_buttons[1].active)
+		{
+			for (int j = 0; j < 15; j++)
+				Keymap_KeyUp(&sdlkey);
+		}
+		else
+		{
+			Keymap_KeyUp(&sdlkey);
+		}
 
 		current_arrow_button = -1;
 		arrow_key_down = 0;
@@ -203,16 +270,76 @@ int handle_arrow_buttons_pressed(SDL_Event *event)
 
 	// Release key if mouse dragged off
 	if (event->type == SDL_MOUSEMOTION && current_arrow_button != -1 && arrow_key_down)
+	// if (event->type == SDL_MOUSEMOTION && current_arrow_button != -1)
 	{
 		int i = current_arrow_button;
 		if (!(x >= arrow_buttons[i].x && x <= arrow_buttons[i].x + arrow_buttons[i].width &&
 			  y >= arrow_buttons[i].y && y <= arrow_buttons[i].y + arrow_buttons[i].height))
 		{
 			SDL_Keysym sdlkey = arrow_buttons[i].sdlkey;
-			for (int j = 0; j < 15; j++) Keymap_KeyUp(&sdlkey);
+			if (fn_buttons[0].active && !fn_buttons[1].active)
+			{
+				for (int j = 0; j < 15; j++)
+					Keymap_KeyDown(&sdlkey);
+			}
+			else
+			{
+				Keymap_KeyUp(&sdlkey);
+			}
 
 			current_arrow_button = -1;
 			arrow_key_down = 0;
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+int current_thrust_button = -1;
+
+int handle_thrust_buttons_pressed(SDL_Event *event)
+{
+	int x = event->button.x;
+	int y = event->button.y;
+
+	if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT)
+	{
+		for (int i = 0; i < sizeof(thrust_buttons) / sizeof(thrust_buttons[0]); i++)
+		{
+			if (x >= thrust_buttons[i].x && x <= thrust_buttons[i].x + thrust_buttons[i].width &&
+				y >= thrust_buttons[i].y && y <= thrust_buttons[i].y + thrust_buttons[i].height)
+			{
+				current_thrust_button = i;
+
+				SDL_Keysym sdlkey = thrust_buttons[i].sdlkey;
+				Keymap_KeyDown(&sdlkey);
+				return 1;
+			}
+		}
+	}
+
+	// Release key on mouse up
+	if (event->type == SDL_MOUSEBUTTONUP && current_thrust_button != -1)
+	{
+		SDL_Keysym sdlkey = thrust_buttons[current_thrust_button].sdlkey;
+		Keymap_KeyUp(&sdlkey);
+
+		current_thrust_button = -1;
+		return 1;
+	}
+
+	// Release key if mouse dragged off
+	if (event->type == SDL_MOUSEMOTION && current_thrust_button != -1)
+	{
+		int i = current_thrust_button;
+		if (!(x >= thrust_buttons[i].x && x <= thrust_buttons[i].x + thrust_buttons[i].width &&
+			  y >= thrust_buttons[i].y && y <= thrust_buttons[i].y + thrust_buttons[i].height))
+		{
+			SDL_Keysym sdlkey = thrust_buttons[i].sdlkey;
+			Keymap_KeyUp(&sdlkey);
+
+			current_thrust_button = -1;
 			return 1;
 		}
 	}

@@ -131,6 +131,7 @@ void Main_EventHandler()
 		{
 			handle_touch_inputs(&event);
 			handle_arrow_buttons_pressed(&event);
+			handle_thrust_buttons_pressed(&event);
 		}
 
 		switch (event.type)

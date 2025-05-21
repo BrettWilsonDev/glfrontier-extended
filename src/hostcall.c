@@ -496,7 +496,7 @@ void Call_DrawStrShadowed()
 {
 	unsigned char *str;
 
-	str = GetReg(REG_A0) + STRam;
+	str = (unsigned char *)(GetReg(REG_A0) + STRam);
 
 	SetReg(REG_D1, DrawStr(
 					   GetReg(REG_D1), GetReg(REG_D2),
@@ -507,7 +507,7 @@ void Call_DrawStr()
 {
 	unsigned char *str;
 
-	str = GetReg(REG_A0) + STRam;
+	str = (unsigned char *)(GetReg(REG_A0) + STRam);
 
 	SetReg(REG_D1, DrawStr(
 					   GetReg(REG_D1), GetReg(REG_D2),
@@ -907,7 +907,7 @@ static void Call_Fopendir()
 	dirName++;
 	if (PHYSFS_mkdir(dirName) == 0)
 	{
-		printf("failed to create directory: %s (%d)\n");
+		printf("failed to create savs directory...");
 	}
 
 	strncpy(cur_dir, name, sizeof(cur_dir) - 1);
