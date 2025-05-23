@@ -77,6 +77,28 @@ if(USE_SDL2 AND NOT ${PLATFORM} STREQUAL "Web")
         option(SDL_SHARED "Build SDL as a shared library" ON)
     endif()
 
+    set(SDL_AUDIO ON CACHE BOOL "" FORCE)
+    set(SDL_VIDEO ON CACHE BOOL "" FORCE)
+    set(SDL_TIMERS ON CACHE BOOL "" FORCE)
+    set(SDL_THREADS ON CACHE BOOL "" FORCE)
+    set(SDL_RENDER ON CACHE BOOL "" FORCE)
+    set(SDL_EVENTS ON CACHE BOOL "" FORCE)
+    set(SDL_CPUINFO ON CACHE BOOL "" FORCE)
+    set(SDL_ATOMIC ON CACHE BOOL "" FORCE)
+
+    set(SDL_JOYSTICK OFF CACHE BOOL "" FORCE)
+    set(SDL_HAPTIC OFF CACHE BOOL "" FORCE)
+    set(SDL_SENSOR OFF CACHE BOOL "" FORCE)
+    set(SDL_POWER OFF CACHE BOOL "" FORCE)
+    set(SDL_FILE OFF CACHE BOOL "" FORCE)
+    set(SDL_FILESYSTEM OFF CACHE BOOL "" FORCE)
+    set(SDL_MISC OFF CACHE BOOL "" FORCE)
+
+    set(SDL2MAIN OFF CACHE BOOL "" FORCE)
+    set(SDL_TEST OFF CACHE BOOL "" FORCE)
+    set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(SDL_DEMOS OFF CACHE BOOL "" FORCE)
+
     set(dep SDL2)
     add_git_dependency(
         ${dep}
@@ -186,6 +208,23 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/fe2/audio)
 ##########################################################################################
 # Project executable setup
 ##########################################################################################
+
+file(GLOB_RECURSE HEADER_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/vendor/*.h"
+)
+set(HEADER_DIRS "")
+foreach(HEADER_FILE ${HEADER_FILES})
+    get_filename_component(DIR "${HEADER_FILE}" DIRECTORY)
+    list(APPEND HEADER_DIRS "${DIR}")
+endforeach()
+
+# Remove duplicate paths
+list(REMOVE_DUPLICATES HEADER_DIRS)
+
+# Add each unique header directory
+foreach(DIR ${HEADER_DIRS})
+    include_directories("${DIR}")
+endforeach()
 
 # Adding our source files
 file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/*.c")

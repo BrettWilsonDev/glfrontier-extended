@@ -11,6 +11,24 @@ extern int pause_button_pressed(SDL_Event *event);
 extern void update_virtual_joystick(int x, int y);
 extern void handle_virtual_joystick(SDL_Event *event);
 
+extern void track_button_state(int index);
+
+enum Views{
+    FIRST_PERSON,
+	SECOND_PERSON,
+	THIRD_PERSON,
+	GALAXY_MAP,
+	GALAXY_MAP2,
+	GALAXY_MAP3,
+	SYSTEM_MAP,
+	SYSTEM_MAP2,
+	SYSTEM_MAP3,
+	INFO,
+	CONTACT,
+	WHOLE_GALAXY,
+	PAUSE_MENU,
+};
+
 typedef struct
 {
     int index;
@@ -20,10 +38,10 @@ typedef struct
     int height; // height of the button
     SDL_Color color; // color of the release view
     SDL_Color debug_color; // color of the debug view
-    // int times_pressed; // number of times the button has been pressed
-    // int times_pressed_max; // max number of times the button can be pressed
     int active; // is the button being touched (bool)
     SDL_Keysym sdlkey; // SDL_Keysym of the button
+    int times_pressed; // number of times the button has been pressed
+    // int times_pressed_max; // max number of times the button can be pressed
 } touch_button;
 
 extern touch_button fn_buttons[9];
@@ -44,5 +62,6 @@ extern VirtualJoystick vjoy;
 static int vjoy_mouse_down = 0;
 
 extern int toggle_arrow_keys_touch;
+extern int toggle_thrust_keys_touch;
 
 #endif // TOUCHCONTROLS_H

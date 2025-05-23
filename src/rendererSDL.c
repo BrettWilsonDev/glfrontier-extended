@@ -401,51 +401,51 @@ void RenderVirtualJoystick(SDL_Renderer *renderer)
 // Function to draw an arrow
 void drawArrow(SDL_Renderer *renderer, int x, int y, int width, int height, SDL_Color color, int direction, int lineWidth)
 {
-    SDL_Rect square = {x, y, width, height};
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
-    SDL_RenderDrawRect(renderer, &square);
+	SDL_Rect square = {x, y, width, height};
+	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+	SDL_RenderDrawRect(renderer, &square);
 
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+	SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 
-    // Use float for safe math
-    float centerX = x + width / 2.0f;
-    float centerY = y + height / 2.0f;
-    float padding = fmaxf(2.0f, fminf(width, height) / 6.0f); // Never less than 2px
+	// Use float for safe math
+	float centerX = x + width / 2.0f;
+	float centerY = y + height / 2.0f;
+	float padding = fmaxf(2.0f, fminf(width, height) / 6.0f); // Never less than 2px
 
-    float aw = fmaxf(3.0f, (width - 2 * padding) / 2.0f); // Arrow half-width
-    float ah = fmaxf(3.0f, (height - 2 * padding) / 2.0f); // Arrow half-height
+	float aw = fmaxf(3.0f, (width - 2 * padding) / 2.0f);  // Arrow half-width
+	float ah = fmaxf(3.0f, (height - 2 * padding) / 2.0f); // Arrow half-height
 
-    for (int i = -lineWidth / 2; i <= lineWidth / 2; i++)
-    {
-        float offset = (float)i;
+	for (int i = -lineWidth / 2; i <= lineWidth / 2; i++)
+	{
+		float offset = (float)i;
 
-        switch (direction)
-        {
-        case 0: // Up
-            SDL_RenderDrawLineF(renderer, centerX + offset, y + height - padding, centerX - aw + offset, centerY);
-            SDL_RenderDrawLineF(renderer, centerX + offset, y + height - padding, centerX + aw + offset, centerY);
-            SDL_RenderDrawLineF(renderer, centerX - aw + offset, centerY, centerX + aw + offset, centerY);
-            break;
+		switch (direction)
+		{
+		case 0: // Up
+			SDL_RenderDrawLineF(renderer, centerX + offset, y + height - padding, centerX - aw + offset, centerY);
+			SDL_RenderDrawLineF(renderer, centerX + offset, y + height - padding, centerX + aw + offset, centerY);
+			SDL_RenderDrawLineF(renderer, centerX - aw + offset, centerY, centerX + aw + offset, centerY);
+			break;
 
-        case 1: // Right
-            SDL_RenderDrawLineF(renderer, x + padding, centerY + offset, centerX, centerY - ah + offset);
-            SDL_RenderDrawLineF(renderer, x + padding, centerY + offset, centerX, centerY + ah + offset);
-            SDL_RenderDrawLineF(renderer, centerX, centerY - ah + offset, centerX, centerY + ah + offset);
-            break;
+		case 1: // Right
+			SDL_RenderDrawLineF(renderer, x + padding, centerY + offset, centerX, centerY - ah + offset);
+			SDL_RenderDrawLineF(renderer, x + padding, centerY + offset, centerX, centerY + ah + offset);
+			SDL_RenderDrawLineF(renderer, centerX, centerY - ah + offset, centerX, centerY + ah + offset);
+			break;
 
-        case 2: // Down
-            SDL_RenderDrawLineF(renderer, centerX + offset, y + padding, centerX - aw + offset, centerY);
-            SDL_RenderDrawLineF(renderer, centerX + offset, y + padding, centerX + aw + offset, centerY);
-            SDL_RenderDrawLineF(renderer, centerX - aw + offset, centerY, centerX + aw + offset, centerY);
-            break;
+		case 2: // Down
+			SDL_RenderDrawLineF(renderer, centerX + offset, y + padding, centerX - aw + offset, centerY);
+			SDL_RenderDrawLineF(renderer, centerX + offset, y + padding, centerX + aw + offset, centerY);
+			SDL_RenderDrawLineF(renderer, centerX - aw + offset, centerY, centerX + aw + offset, centerY);
+			break;
 
-        case 3: // Left
-            SDL_RenderDrawLineF(renderer, x + width - padding + offset, centerY, centerX, centerY - ah + offset);
-            SDL_RenderDrawLineF(renderer, x + width - padding + offset, centerY, centerX, centerY + ah + offset);
-            SDL_RenderDrawLineF(renderer, centerX, centerY - ah + offset, centerX, centerY + ah + offset);
-            break;
-        }
-    }
+		case 3: // Left
+			SDL_RenderDrawLineF(renderer, x + width - padding + offset, centerY, centerX, centerY - ah + offset);
+			SDL_RenderDrawLineF(renderer, x + width - padding + offset, centerY, centerX, centerY + ah + offset);
+			SDL_RenderDrawLineF(renderer, centerX, centerY - ah + offset, centerX, centerY + ah + offset);
+			break;
+		}
+	}
 }
 
 void drawThrustSymbol(SDL_Renderer *renderer, int x, int y, int width, int height, SDL_Color color, int direction, int lineWidth)
@@ -540,7 +540,6 @@ void drawThrustSymbol(SDL_Renderer *renderer, int x, int y, int width, int heigh
 	}
 }
 
-
 void draw_touch_controls()
 {
 	RenderVirtualJoystick(sdlRenderer);
@@ -563,25 +562,24 @@ void draw_touch_controls()
 		drawArrow(sdlRenderer, originX + arrowSpacing, originY, size, size, color, 3, 2); // right arrow
 	}
 
-	drawArrow(sdlRenderer, arrow_buttons[0].x, arrow_buttons[0].y, arrow_buttons[0].width, arrow_buttons[0].width, arrow_buttons[0].color, arrow_buttons[0].index, 2);
+	if (toggle_thrust_keys_touch)
+	{
+		SDL_Color color = thrust_buttons[0].color;
+		// Define the origin point (x, y) of the arrow group
+		int originX = thrust_buttons[0].x;
+		int originY = thrust_buttons[0].y;
+		int size = thrust_buttons[0].width;
 
-	// if (toggle_arrow_keys_touch)
-	// {
-	SDL_Color color = thrust_buttons[0].color;
-	// Define the origin point (x, y) of the arrow group
-	int originX = thrust_buttons[0].x;
-	int originY = thrust_buttons[0].y;
-	int size = thrust_buttons[0].width;
+		// Define the offset of each arrow from the origin
+		int spacing = thrust_buttons[0].height;
 
-	// Define the offset of each arrow from the origin
-	int spacing = thrust_buttons[0].height;
-
-	// Draw the arrows relative to the origin
-	drawThrustSymbol(sdlRenderer, originX, originY, size, size, color, 0, 2);				   // down arrow
-	drawThrustSymbol(sdlRenderer, originX - spacing, originY - (30), size, size, color, 1, 2); // left arrow
-	drawThrustSymbol(sdlRenderer, originX, originY - spacing, size, size, color, 2, 2);		   // up arrow
-	drawThrustSymbol(sdlRenderer, originX + spacing, originY - (30), size, size, color, 3, 2); // right arrow
-																							   // }
+		// Draw the arrows relative to the origin
+		drawThrustSymbol(sdlRenderer, originX, originY, size, size, color, 0, 2);				   // down arrow
+		drawThrustSymbol(sdlRenderer, originX - spacing, originY - (30), size, size, color, 1, 2); // left arrow
+		drawThrustSymbol(sdlRenderer, originX, originY - spacing, size, size, color, 2, 2);		   // up arrow
+		drawThrustSymbol(sdlRenderer, originX + spacing, originY - (30), size, size, color, 3, 2); // right arrow
+																								   // }
+	}
 }
 
 void draw_debug_blocks()

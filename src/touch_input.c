@@ -8,6 +8,7 @@
 #include "SDL_keyboard.h"
 
 int toggle_arrow_keys_touch = FALSE;
+int toggle_thrust_keys_touch = FALSE;
 
 VirtualJoystick vjoy = {550, 300, 60, 550, 300, 0, 0.0f, 0.0f};
 
@@ -16,6 +17,11 @@ touch_button arrow_buttons[] = {};
 touch_button thrust_buttons[] = {};
 
 touch_button pause_button = {};
+static int times_paused_pressed = 0;
+static enum Views view_before_pause = FIRST_PERSON;
+
+static enum Views current_view = FIRST_PERSON;
+static int current_button_index = -1;
 
 // used to determine if init_touch_buttons has been called once only
 static int init_touch_buttons_called = 0;
@@ -64,6 +70,7 @@ void init_touch_buttons()
 				fn_buttons[i].height = left_size;
 				fn_buttons[i].debug_color = colors[i];
 				fn_buttons[i].sdlkey = keys[i];
+				fn_buttons[i].times_pressed = 0;
 			}
 			else
 			{
@@ -75,6 +82,7 @@ void init_touch_buttons()
 				fn_buttons[i].height = right_size;
 				fn_buttons[i].debug_color = colors[i - 4];
 				fn_buttons[i].sdlkey = keys[i];
+				fn_buttons[i].times_pressed = 0;
 			}
 		}
 
@@ -182,12 +190,14 @@ int fn_button_pressed(SDL_Event *event)
 
 				// printf("Button %d pressed sdlkey: %s times pressed ctr %d max ctr %d\n", i, SDL_GetKeyName(fn_buttons[i].sdlkey.sym), fn_buttons[i].times_pressed, fn_buttons[i].times_pressed_max);
 
-				toggle_arrow_keys_touch = 0;
+				// toggle_arrow_keys_touch = 0;
 
 				if (i == 0)
 				{
 					fn_buttons[i].active = 1;
 				}
+
+				current_button_index = i;
 
 				if (i != 0)
 				{
@@ -202,7 +212,7 @@ int fn_button_pressed(SDL_Event *event)
 }
 
 static int current_arrow_button = -1;
-static int arrow_key_down = 0;
+// static int arrow_key_down = 0;
 
 int handle_arrow_buttons_pressed(SDL_Event *event)
 {
@@ -211,14 +221,14 @@ int handle_arrow_buttons_pressed(SDL_Event *event)
 
 	if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT)
 	{
-		// First click on arrow_buttons[0] acts as toggle if not enabled yet
-		if (!toggle_arrow_keys_touch &&
-			x >= arrow_buttons[0].x && x <= arrow_buttons[0].x + arrow_buttons[0].width &&
-			y >= arrow_buttons[0].y && y <= arrow_buttons[0].y + arrow_buttons[0].height)
-		{
-			toggle_arrow_keys_touch = 1;
-			return 1;
-		}
+		// // First click on arrow_buttons[0] acts as toggle if not enabled yet
+		// if (!toggle_arrow_keys_touch &&
+		// 	x >= arrow_buttons[0].x && x <= arrow_buttons[0].x + arrow_buttons[0].width &&
+		// 	y >= arrow_buttons[0].y && y <= arrow_buttons[0].y + arrow_buttons[0].height)
+		// {
+		// 	toggle_arrow_keys_touch = 1;
+		// 	return 1;
+		// }
 
 		// Only allow arrow buttons if toggle is on
 		if (toggle_arrow_keys_touch)
@@ -229,12 +239,12 @@ int handle_arrow_buttons_pressed(SDL_Event *event)
 					y >= arrow_buttons[i].y && y <= arrow_buttons[i].y + arrow_buttons[i].height)
 				{
 					current_arrow_button = i;
-					arrow_key_down = 1;
+					// arrow_key_down = 1;
 
 					SDL_Keysym sdlkey = arrow_buttons[i].sdlkey;
 					if (fn_buttons[0].active && !fn_buttons[1].active)
 					{
-						printf("active\n");
+						// printf("active\n");
 						for (int j = 0; j < 15; j++)
 							Keymap_KeyDown(&sdlkey);
 					}
@@ -249,8 +259,8 @@ int handle_arrow_buttons_pressed(SDL_Event *event)
 	}
 
 	// Release key on mouse up
-	if (event->type == SDL_MOUSEBUTTONUP && current_arrow_button != -1 && arrow_key_down)
-	// if (event->type == SDL_MOUSEBUTTONUP && current_arrow_button != -1)
+	// if (event->type == SDL_MOUSEBUTTONUP && current_arrow_button != -1 && arrow_key_down)
+	if (event->type == SDL_MOUSEBUTTONUP && current_arrow_button != -1)
 	{
 		SDL_Keysym sdlkey = arrow_buttons[current_arrow_button].sdlkey;
 		if (fn_buttons[0].active && !fn_buttons[1].active)
@@ -264,13 +274,13 @@ int handle_arrow_buttons_pressed(SDL_Event *event)
 		}
 
 		current_arrow_button = -1;
-		arrow_key_down = 0;
+		// arrow_key_down = 0;
 		return 1;
 	}
 
 	// Release key if mouse dragged off
-	if (event->type == SDL_MOUSEMOTION && current_arrow_button != -1 && arrow_key_down)
-	// if (event->type == SDL_MOUSEMOTION && current_arrow_button != -1)
+	// if (event->type == SDL_MOUSEMOTION && current_arrow_button != -1 && arrow_key_down)
+	if (event->type == SDL_MOUSEMOTION && current_arrow_button != -1)
 	{
 		int i = current_arrow_button;
 		if (!(x >= arrow_buttons[i].x && x <= arrow_buttons[i].x + arrow_buttons[i].width &&
@@ -288,7 +298,7 @@ int handle_arrow_buttons_pressed(SDL_Event *event)
 			}
 
 			current_arrow_button = -1;
-			arrow_key_down = 0;
+			// arrow_key_down = 0;
 			return 1;
 		}
 	}
@@ -361,12 +371,177 @@ int pause_button_pressed(SDL_Event *event)
 			Keymap_KeyDown(&sdlkey);
 			Keymap_KeyUp(&sdlkey);
 
+			current_button_index = 10;
+
 			return 1;
 		}
 	}
 	return 0;
 }
 
+/*
+	FIRST_PERSON,
+	SECOND_PERSON,
+	THIRD_PERSON,
+	GALAXY_MAP,
+	GALAXY_MAP2,
+	GALAXY_MAP3,
+	SYSTEM_MAP,
+	SYSTEM_MAP2,
+	SYSTEM_MAP3,
+	INFO,
+	CONTACT,
+	WHOLE_GALAXY,
+	PAUSE_MENU,
+*/
+
+char *view_names[] = {"FIRST_PERSON", "SECOND_PERSON", "THIRD_PERSON", "GALAXY_MAP", "GALAXY_MAP2", "GALAXY_MAP3", "SYSTEM_MAP", "SYSTEM_MAP2", "SYSTEM_MAP3", "INFO", "CONTACT", "WHOLE_GALAXY", "PAUSE_MENU"};
+
+void handle_button_state(int index)
+{
+	if (index == -1)
+		return;
+
+	// printf("index %d\n", index);
+	switch (index)
+	{
+	case 0: // f1
+		if (!(current_view == INFO || current_view == CONTACT || current_view == GALAXY_MAP || current_view == SYSTEM_MAP || current_view == WHOLE_GALAXY || current_view == GALAXY_MAP2 || current_view == SYSTEM_MAP2))
+		{
+			fn_buttons[index].times_pressed++;
+
+			if (fn_buttons[index].times_pressed == 3)
+				fn_buttons[index].times_pressed = 0;
+		}
+
+		if (fn_buttons[index].times_pressed == 0)
+		{
+			current_view = FIRST_PERSON;
+		}
+		else if (fn_buttons[index].times_pressed == 1)
+		{
+			current_view = SECOND_PERSON;
+		}
+		else if (fn_buttons[index].times_pressed == 2)
+		{
+			current_view = THIRD_PERSON;
+		}
+
+		view_before_pause = current_view;
+
+		// printf("times pressed f1 %d\n", fn_buttons[index].times_pressed);
+		break;
+	case 1: // f2
+		if (current_view == FIRST_PERSON || current_view == SECOND_PERSON || current_view == THIRD_PERSON || current_view == INFO || current_view == CONTACT || current_view == SYSTEM_MAP3)
+		{
+			fn_buttons[index].times_pressed = 0;
+		}
+
+		fn_buttons[index].times_pressed++;
+
+		if (fn_buttons[index].times_pressed == 2)
+			fn_buttons[index].times_pressed = 0;
+
+		if (fn_buttons[index].times_pressed == 0)
+		{
+			current_view = SYSTEM_MAP;
+		}
+		else if (fn_buttons[index].times_pressed == 1)
+		{
+			current_view = GALAXY_MAP;
+		}
+		// printf("times pressed f2 %d\n", fn_buttons[index].times_pressed);
+		break;
+	case 2: // f3
+		current_view = INFO;
+
+		// printf("times pressed f3 %d\n", fn_buttons[index].times_pressed);
+		break;
+	case 3: // f4
+		current_view = CONTACT;
+		break;
+	case 4: // f10
+		if (current_view == SYSTEM_MAP2)
+		{
+			current_view = SYSTEM_MAP3;
+		}
+
+		if (!(current_view == GALAXY_MAP) && !(current_view == WHOLE_GALAXY) && !(current_view == GALAXY_MAP2))
+		{
+			break;
+		}
+
+		fn_buttons[index].times_pressed++;
+
+		if (fn_buttons[index].times_pressed == 2)
+			fn_buttons[index].times_pressed = 0;
+
+		if (fn_buttons[index].times_pressed == 0)
+		{
+			// current_view = GALAXY_MAP;
+			// current_view = GALAXY_MAP2;
+			current_view = GALAXY_MAP3;
+		}
+		else if (fn_buttons[index].times_pressed == 1)
+		{
+			current_view = WHOLE_GALAXY;
+		}
+
+		// printf("times pressed f10 %d\n", fn_buttons[index].times_pressed);
+		break;
+	case 8: // f6
+		if (!(current_view == GALAXY_MAP) && !(current_view == SYSTEM_MAP2) && !(current_view == GALAXY_MAP2) && !(current_view == GALAXY_MAP3) && !(current_view == WHOLE_GALAXY))
+		{
+			break;
+		}
+
+		if (current_view == GALAXY_MAP)
+		{
+			fn_buttons[index].times_pressed = 0;
+		}
+
+		fn_buttons[index].times_pressed++;
+
+		if (fn_buttons[index].times_pressed == 2)
+			fn_buttons[index].times_pressed = 0;
+
+		if (fn_buttons[index].times_pressed == 0)
+		{
+			current_view = GALAXY_MAP2;
+		}
+		else if (fn_buttons[index].times_pressed == 1)
+		{
+			current_view = SYSTEM_MAP2;
+		}
+		// printf("times pressed f6 %d\n", fn_buttons[index].times_pressed);
+		break;
+	case 10: // pause
+		times_paused_pressed++;
+
+		if (times_paused_pressed == 2)
+			times_paused_pressed = 0;
+
+		if (times_paused_pressed == 0)
+		{
+			current_view = PAUSE_MENU;
+		}
+		else if (times_paused_pressed == 1)
+		{
+			current_view = view_before_pause;
+		}
+		// printf("times pressed pause %d\n", times_paused_pressed);
+		break;
+	default:
+		// printf("unknown index %d\n", index);
+		break;
+	}
+
+	current_button_index = -1;
+
+	// printf("view %s\n", view_names[current_view]);
+}
+
+// ================== virtual joystick ==================
 void update_virtual_joystick(int x, int y)
 {
 	vjoy.active = 1;
@@ -389,7 +564,7 @@ void handle_virtual_joystick(SDL_Event *event)
 	case SDL_MOUSEMOTION:
 		if (vjoy_mouse_down)
 		{
-			toggle_arrow_keys_touch = 0;
+			// toggle_arrow_keys_touch = 0;
 			update_virtual_joystick(event->motion.x, event->motion.y);
 		}
 		break;
@@ -419,9 +594,32 @@ void handle_virtual_joystick(SDL_Event *event)
 		break;
 	}
 }
+// =====================================================
 
 void handle_touch_inputs(SDL_Event *event)
 {
 	init_touch_buttons();			// only needs to be called once
 	handle_virtual_joystick(event); // handle virtual joystick called every frame
+	handle_arrow_buttons_pressed(event);
+	handle_thrust_buttons_pressed(event);
+
+	handle_button_state(current_button_index);
+
+	if (current_view == THIRD_PERSON || current_view == GALAXY_MAP || current_view == GALAXY_MAP2 || current_view == GALAXY_MAP3)
+	{
+		toggle_arrow_keys_touch = 1;
+	}
+	else
+	{
+		toggle_arrow_keys_touch = 0;
+	}
+
+	if (current_view == FIRST_PERSON || current_view == SECOND_PERSON || current_view == THIRD_PERSON)
+	{
+		toggle_thrust_keys_touch = 1;
+	}
+	else
+	{
+		toggle_thrust_keys_touch = 0;
+	}
 }
