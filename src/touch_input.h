@@ -3,17 +3,20 @@
 
 #include <SDL.h>
 
-extern void handle_touch_inputs(SDL_Event *event);
 extern int fn_button_pressed(SDL_Event *event);
 extern int handle_arrow_buttons_pressed(SDL_Event *event);
 extern int handle_thrust_buttons_pressed(SDL_Event *event);
 extern int pause_button_pressed(SDL_Event *event);
+extern int play_button_pressed(SDL_Event *event);
+extern int dropdown_button_pressed(SDL_Event *event);
 extern void update_virtual_joystick(int x, int y);
 extern void handle_virtual_joystick(SDL_Event *event);
-
 extern void track_button_state(int index);
+extern int touch_buttons_pressed(SDL_Event *event);
+extern void handle_touch_inputs(SDL_Event *event);
 
 enum Views{
+    UNKNOWN,
     FIRST_PERSON,
 	SECOND_PERSON,
 	THIRD_PERSON,
@@ -26,8 +29,12 @@ enum Views{
 	INFO,
 	CONTACT,
 	WHOLE_GALAXY,
+	PAUSE,
 	PAUSE_MENU,
+    PLAY,
 };
+
+extern int pixel_view_eval;
 
 typedef struct
 {
@@ -47,7 +54,9 @@ typedef struct
 extern touch_button fn_buttons[9];
 extern touch_button arrow_buttons[4];
 extern touch_button thrust_buttons[4];
+extern touch_button dropdown_buttons[7];
 extern touch_button pause_button;
+extern touch_button play_button;
 
 typedef struct {
     int base_x, base_y;     // center of the joystick base
@@ -63,5 +72,6 @@ static int vjoy_mouse_down = 0;
 
 extern int toggle_arrow_keys_touch;
 extern int toggle_thrust_keys_touch;
+extern int toggle_dropdown_keys_touch;
 
 #endif // TOUCHCONTROLS_H

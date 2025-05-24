@@ -11,6 +11,7 @@
 #include "input.h"
 
 #include "touch_input.h"
+#include "utils.h"
 
 unsigned long VideoBase;	/* Base address in ST Ram for screen(read on each VBL) */
 unsigned char *VideoRaster; /* Pointer to Video raster, after VideoBase in PC address space. Use to copy data on HBL */
@@ -399,7 +400,7 @@ void RenderVirtualJoystick(SDL_Renderer *renderer)
 }
 
 // Function to draw an arrow
-void drawArrow(SDL_Renderer *renderer, int x, int y, int width, int height, SDL_Color color, int direction, int lineWidth)
+void draw_arrow_icon(SDL_Renderer *renderer, int x, int y, int width, int height, SDL_Color color, int direction, int lineWidth)
 {
 	SDL_Rect square = {x, y, width, height};
 	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
@@ -448,7 +449,7 @@ void drawArrow(SDL_Renderer *renderer, int x, int y, int width, int height, SDL_
 	}
 }
 
-void drawThrustSymbol(SDL_Renderer *renderer, int x, int y, int width, int height, SDL_Color color, int direction, int lineWidth)
+void draw_thrust_icon(SDL_Renderer *renderer, int x, int y, int width, int height, SDL_Color color, int direction, int lineWidth)
 {
 	SDL_Rect square = {x, y, width, height};
 	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0); // transparent outline
@@ -540,6 +541,232 @@ void drawThrustSymbol(SDL_Renderer *renderer, int x, int y, int width, int heigh
 	}
 }
 
+void draw_burger_menu(float centerX, float centerY, float scale)
+{
+	const float lineWidth = 15.0f * scale;
+	const float lineHeight = 4.0f * scale;
+	const float lineSpacing = 2.0f * scale;
+	const float totalHeight = 3 * lineHeight + 2 * lineSpacing;
+
+	// Calculate top-left starting point so the icon is centered
+	float startX = centerX - lineWidth / 2;
+	float startY = centerY - totalHeight / 2;
+
+	for (int i = 0; i < 3; ++i)
+	{
+		float yOffset = i * (lineHeight + lineSpacing);
+		SDL_RenderDrawLineF(sdlRenderer,
+							startX, startY + yOffset,
+							startX + lineWidth, startY + yOffset);
+	}
+}
+
+void draw_arrow_touch_icon(float x, float y, float scale)
+{
+	float keySize = 8.0f * scale;
+	float spacing = 2.0f * scale;
+
+	// Total size of the icon layout
+	float layoutWidth = 3 * keySize + 2 * spacing;
+	float layoutHeight = 2 * keySize + spacing;
+
+	// Top-left of the whole layout to center it on (x, y)
+	float baseX = x - layoutWidth / 2.0f;
+	float baseY = y - layoutHeight / 2.0f;
+
+	SDL_SetRenderDrawColor(sdlRenderer, 255, 255, 255, 255);
+
+	// Up
+	SDL_FRect up = {baseX + keySize + spacing, baseY, keySize, keySize};
+	SDL_RenderDrawRectF(sdlRenderer, &up);
+
+	// Down
+	SDL_FRect down = {baseX + keySize + spacing, baseY + keySize + spacing, keySize, keySize};
+	SDL_RenderDrawRectF(sdlRenderer, &down);
+
+	// Left
+	SDL_FRect left = {baseX, baseY + keySize + spacing, keySize, keySize};
+	SDL_RenderDrawRectF(sdlRenderer, &left);
+
+	// Right
+	SDL_FRect right = {baseX + 2 * (keySize + spacing), baseY + keySize + spacing, keySize, keySize};
+	SDL_RenderDrawRectF(sdlRenderer, &right);
+}
+
+void draw_zoom_icon(float centerX, float centerY, float radius, char symbol) {
+    const int segments = 32; // more segments = smoother circle
+    const float lineWidth = radius * 0.6f;
+
+    // Draw circle outline using line segments
+    for (int i = 0; i < segments; ++i) {
+        float theta1 = 2.0f * M_PI * i / segments;
+        float theta2 = 2.0f * M_PI * (i + 1) / segments;
+
+        float x1 = centerX + cosf(theta1) * radius;
+        float y1 = centerY + sinf(theta1) * radius;
+        float x2 = centerX + cosf(theta2) * radius;
+        float y2 = centerY + sinf(theta2) * radius;
+
+        SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
+    }
+
+    // Draw symbol inside
+    if (symbol == '+' || symbol == 'p') {
+        // Vertical line
+        SDL_RenderDrawLineF(sdlRenderer,
+            centerX, centerY - lineWidth / 2,
+            centerX, centerY + lineWidth / 2);
+    }
+
+    if (symbol == '+' || symbol == '-' || symbol == 'm') {
+        // Horizontal line
+        SDL_RenderDrawLineF(sdlRenderer,
+            centerX - lineWidth / 2, centerY,
+            centerX + lineWidth / 2, centerY);
+    }
+}
+
+
+void draw_p_icon(float centerX, float centerY, float scale)
+{
+	const float stemHeight = 40.0f * scale;
+	// const float stemWidth = 4.0f * scale;
+	const float loopHeight = 20.0f * scale;
+	const float loopWidth = 20.0f * scale;
+
+	// Bounding box dimensions
+	float totalHeight = stemHeight;
+	float totalWidth = loopWidth;
+
+	// Top-left starting point for centering
+	float startX = centerX - totalWidth / 2;
+	float startY = centerY - totalHeight / 2;
+
+	// Vertical spine
+	SDL_RenderDrawLineF(sdlRenderer,
+						startX, startY,
+						startX, startY + stemHeight);
+
+	// Top horizontal line
+	SDL_RenderDrawLineF(sdlRenderer,
+						startX, startY,
+						startX + loopWidth, startY);
+
+	// Middle horizontal line (loop bottom)
+	SDL_RenderDrawLineF(sdlRenderer,
+						startX, startY + loopHeight,
+						startX + loopWidth, startY + loopHeight);
+
+	// Vertical loop right edge
+	SDL_RenderDrawLineF(sdlRenderer,
+						startX + loopWidth, startY,
+						startX + loopWidth, startY + loopHeight);
+}
+
+void draw_c_icon(float centerX, float centerY, float scale) {
+    const float baseRadius = 10.0f;
+    const float baseThickness = 1.0f;
+    const int segments = 40;
+
+    float radius = baseRadius * scale;
+    float thickness = baseThickness * scale;
+
+    const float startAngle = M_PI / 4;          // 45 degrees
+    const float endAngle = M_PI * 7 / 4;        // 315 degrees
+
+    // Outer arc
+    for (int i = 0; i < segments; ++i) {
+        float t1 = startAngle + (endAngle - startAngle) * i / segments;
+        float t2 = startAngle + (endAngle - startAngle) * (i + 1) / segments;
+
+        float x1 = centerX + cosf(t1) * radius;
+        float y1 = centerY + sinf(t1) * radius;
+        float x2 = centerX + cosf(t2) * radius;
+        float y2 = centerY + sinf(t2) * radius;
+
+        SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
+    }
+
+    // Simulate thickness by drawing inner arcs
+    for (float r = radius - thickness; r < radius; r += 1.0f) {
+        for (int i = 0; i < segments; ++i) {
+            float t1 = startAngle + (endAngle - startAngle) * i / segments;
+            float t2 = startAngle + (endAngle - startAngle) * (i + 1) / segments;
+
+            float x1 = centerX + cosf(t1) * r;
+            float y1 = centerY + sinf(t1) * r;
+            float x2 = centerX + cosf(t2) * r;
+            float y2 = centerY + sinf(t2) * r;
+
+            SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
+        }
+    }
+}
+
+void draw_cogwheel_icon(float centerX, float centerY, float scale) {
+    const int toothCount = 8;
+    const float outerRadius = 16.0f * scale;
+    const float innerRadius = 10.0f * scale;
+    const float centerHoleRadius = 4.0f * scale;
+
+    const float toothWidthAngle = M_PI / (toothCount * 2); // half-tooth gap
+    const float fullCircle = 2.0f * M_PI;
+
+    // Draw outer gear shape (teeth)
+    for (int i = 0; i < toothCount; ++i) {
+        float angle = i * (fullCircle / toothCount);
+
+        float a1 = angle - toothWidthAngle;
+        float a2 = angle + toothWidthAngle;
+
+        // Tooth lines (2 lines per tooth)
+        float x1 = centerX + cosf(a1) * outerRadius;
+        float y1 = centerY + sinf(a1) * outerRadius;
+        float x2 = centerX + cosf(a2) * outerRadius;
+        float y2 = centerY + sinf(a2) * outerRadius;
+
+        float innerX1 = centerX + cosf(a1) * innerRadius;
+        float innerY1 = centerY + sinf(a1) * innerRadius;
+        float innerX2 = centerX + cosf(a2) * innerRadius;
+        float innerY2 = centerY + sinf(a2) * innerRadius;
+
+        // Two radial lines (tooth sides)
+        SDL_RenderDrawLineF(sdlRenderer, innerX1, innerY1, x1, y1);
+        SDL_RenderDrawLineF(sdlRenderer, innerX2, innerY2, x2, y2);
+
+        // Outer arc line across the tooth tip
+        SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
+    }
+
+    // Draw inner gear circle
+    const int segments = 40;
+    for (int i = 0; i < segments; ++i) {
+        float t1 = fullCircle * i / segments;
+        float t2 = fullCircle * (i + 1) / segments;
+
+        float x1 = centerX + cosf(t1) * innerRadius;
+        float y1 = centerY + sinf(t1) * innerRadius;
+        float x2 = centerX + cosf(t2) * innerRadius;
+        float y2 = centerY + sinf(t2) * innerRadius;
+
+        SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
+    }
+
+    // Draw center hole
+    for (int i = 0; i < segments; ++i) {
+        float t1 = fullCircle * i / segments;
+        float t2 = fullCircle * (i + 1) / segments;
+
+        float x1 = centerX + cosf(t1) * centerHoleRadius;
+        float y1 = centerY + sinf(t1) * centerHoleRadius;
+        float x2 = centerX + cosf(t2) * centerHoleRadius;
+        float y2 = centerY + sinf(t2) * centerHoleRadius;
+
+        SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
+    }
+}
+
+
 void draw_touch_controls()
 {
 	RenderVirtualJoystick(sdlRenderer);
@@ -556,10 +783,10 @@ void draw_touch_controls()
 		int arrowSpacing = arrow_buttons[0].height;
 
 		// Draw the arrows relative to the origin
-		drawArrow(sdlRenderer, originX, originY, size, size, color, 0, 2);				  // down arrow
-		drawArrow(sdlRenderer, originX - arrowSpacing, originY, size, size, color, 1, 2); // left arrow
-		drawArrow(sdlRenderer, originX, originY - arrowSpacing, size, size, color, 2, 2); // up arrow
-		drawArrow(sdlRenderer, originX + arrowSpacing, originY, size, size, color, 3, 2); // right arrow
+		draw_arrow_icon(sdlRenderer, originX, originY, size, size, color, 0, 2);				  // down arrow
+		draw_arrow_icon(sdlRenderer, originX - arrowSpacing, originY, size, size, color, 1, 2); // left arrow
+		draw_arrow_icon(sdlRenderer, originX, originY - arrowSpacing, size, size, color, 2, 2); // up arrow
+		draw_arrow_icon(sdlRenderer, originX + arrowSpacing, originY, size, size, color, 3, 2); // right arrow
 	}
 
 	if (toggle_thrust_keys_touch)
@@ -574,11 +801,50 @@ void draw_touch_controls()
 		int spacing = thrust_buttons[0].height;
 
 		// Draw the arrows relative to the origin
-		drawThrustSymbol(sdlRenderer, originX, originY, size, size, color, 0, 2);				   // down arrow
-		drawThrustSymbol(sdlRenderer, originX - spacing, originY - (30), size, size, color, 1, 2); // left arrow
-		drawThrustSymbol(sdlRenderer, originX, originY - spacing, size, size, color, 2, 2);		   // up arrow
-		drawThrustSymbol(sdlRenderer, originX + spacing, originY - (30), size, size, color, 3, 2); // right arrow
+		draw_thrust_icon(sdlRenderer, originX, originY, size, size, color, 0, 2);				   // down arrow
+		draw_thrust_icon(sdlRenderer, originX - spacing, originY - (30), size, size, color, 1, 2); // left arrow
+		draw_thrust_icon(sdlRenderer, originX, originY - spacing, size, size, color, 2, 2);		   // up arrow
+		draw_thrust_icon(sdlRenderer, originX + spacing, originY - (30), size, size, color, 3, 2); // right arrow
 																								   // }
+	}
+
+	for (int i = 0; i < sizeof(dropdown_buttons) / sizeof(dropdown_buttons[0]); i++)
+	{
+		if (!toggle_dropdown_keys_touch && i != 0)
+			continue;
+
+		SDL_SetRenderDrawColor(sdlRenderer, dropdown_buttons[i].color.r, dropdown_buttons[i].color.g, dropdown_buttons[i].color.b, dropdown_buttons[i].color.a);
+		SDL_Rect dropdownRect = {dropdown_buttons[i].x, dropdown_buttons[i].y, dropdown_buttons[i].width, dropdown_buttons[i].height};
+		SDL_RenderDrawRect(sdlRenderer, &dropdownRect);
+
+		draw_burger_menu(dropdown_buttons[0].x + dropdown_buttons[0].width / 2, (dropdown_buttons[0].y + dropdown_buttons[0].height / 2), 1);
+
+		if (i == 1)
+		{
+			// draw_burger_menu(dropdown_buttons[0].x + dropdown_buttons[0].width / 2, (dropdown_buttons[0].y + dropdown_buttons[0].height / 2), 1);
+			draw_arrow_touch_icon(dropdown_buttons[i].x + dropdown_buttons[i].width / 2, (dropdown_buttons[i].y + dropdown_buttons[i].height / 2), 1);
+		}
+		else if (i == 2)
+		{
+			draw_zoom_icon(dropdown_buttons[i].x + dropdown_buttons[i].width / 2, (dropdown_buttons[i].y + dropdown_buttons[i].height / 2), 12, '+');
+		}
+		else if (i == 3)
+		{
+			draw_zoom_icon(dropdown_buttons[i].x + dropdown_buttons[i].width / 2, (dropdown_buttons[i].y + dropdown_buttons[i].height / 2), 12, '-');
+		}
+		else if (i == 4)
+		{
+			draw_p_icon(dropdown_buttons[i].x + dropdown_buttons[i].width / 2, (dropdown_buttons[i].y + dropdown_buttons[i].height / 2), 0.5);
+		}
+		else if (i == 5)
+		{
+			draw_c_icon(dropdown_buttons[i].x + dropdown_buttons[i].width / 2, (dropdown_buttons[i].y + dropdown_buttons[i].height / 2), 1);
+		}
+		else if (i == 6)
+		{
+			draw_cogwheel_icon(dropdown_buttons[i].x + dropdown_buttons[i].width / 2, (dropdown_buttons[i].y + dropdown_buttons[i].height / 2), 0.8);
+		}
+		
 	}
 }
 
@@ -594,10 +860,15 @@ void draw_debug_blocks()
 	SDL_SetRenderDrawColor(sdlRenderer, pause_button.debug_color.r, pause_button.debug_color.g, pause_button.debug_color.b, pause_button.debug_color.a);
 	SDL_Rect pauseRect = {pause_button.x, pause_button.y, pause_button.width, pause_button.height};
 	SDL_RenderDrawRect(sdlRenderer, &pauseRect);
+
+	SDL_SetRenderDrawColor(sdlRenderer, play_button.debug_color.r, play_button.debug_color.g, play_button.debug_color.b, play_button.debug_color.a);
+	SDL_Rect playRect = {play_button.x, play_button.y, play_button.width, play_button.height};
+	SDL_RenderDrawRect(sdlRenderer, &playRect);
 }
 
 static void draw_on_top_of_screen()
 {
+
 	if (toggleTouchControls)
 		draw_touch_controls();
 	// draw_debug_blocks();
