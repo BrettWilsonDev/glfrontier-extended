@@ -159,6 +159,15 @@ if(USE_PHYSFS)
 endif()
 
 ##########################################################################################
+# nuklear Setup
+##########################################################################################
+
+add_library(nuklear OBJECT ${CMAKE_CURRENT_LIST_DIR}/vendor/nuklear/nuklear_sdl_impl.c)
+target_include_directories(nuklear PUBLIC ${sdl2_SOURCE_DIR}/include)
+
+list(APPEND LIBRARIES nuklear)
+
+##########################################################################################
 # emulator setup
 ##########################################################################################
 
@@ -186,7 +195,7 @@ if (${PLATFORM} STREQUAL "Web")
     list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_part_two.a)
     list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_part_one.a)
 else()
-    set(USE_GL_RENDERER OFF CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE)
+    # set(USE_GL_RENDERER OFF CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE)
 
     add_library(fe2_part_one OBJECT fe2/fe2.s.c)
     target_compile_options(fe2_part_one PRIVATE -DPART1 -O2 -fomit-frame-pointer -fcommon)

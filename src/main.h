@@ -187,7 +187,11 @@ extern char szName[];
 extern char szBootDiscImage[MAX_FILENAME_LENGTH];
 extern char szWorkingDir[MAX_FILENAME_LENGTH];
 extern char szCurrentDir[MAX_FILENAME_LENGTH];
-extern bool toggleTouchControls;
+extern bool toggle_touch_controls;
+extern bool toggle_m68k_menu;
+extern bool toggle_fps_draw;
+
+extern int emulation_speed;
 
 extern void Main_SysError(char *Error, char *Title);
 extern int Main_Message(char *lpText, char *lpCaption /*, unsigned int uType*/);

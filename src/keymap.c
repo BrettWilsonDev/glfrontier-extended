@@ -163,7 +163,8 @@ void Keymap_Init(void)
 static uint8_t Keymap_GetSTScanCode(SDL_Keysym *keysym)
 {
     /* Handle NumLock state for keypad */
-    if (keysym->sym >= SDLK_KP_0 && keysym->sym <= SDLK_KP_9) {
+    // if (keysym->sym >= SDLK_KP_0 && keysym->sym <= SDLK_KP_9) {
+    if ((keysym->sym - SDLK_KP_0) <= (SDLK_KP_9 - SDLK_KP_0)) {
         if (!(SDL_GetModState() & KMOD_NUM)) {
             /* NumLock off - use alternate mappings */
             switch (keysym->sym) {

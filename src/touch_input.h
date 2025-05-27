@@ -34,7 +34,9 @@ enum Views{
     PLAY,
 };
 
-extern int pixel_view_eval;
+// extern int pixel_view_eval;
+extern enum Views public_view;
+extern char *view_names[16];
 
 typedef struct
 {

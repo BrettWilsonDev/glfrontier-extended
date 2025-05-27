@@ -26,6 +26,7 @@ touch_button play_button = {};
 
 // static enum Views current_view = FIRST_PERSON;
 static enum Views current_view = FIRST_PERSON;
+enum Views public_view = FIRST_PERSON;
 static int current_button_index = -1;
 
 int pixel_view_eval = -1;
@@ -214,7 +215,7 @@ void init_touch_buttons()
 				dropdown_buttons[i].y = originY + (size * i) - 1;
 				dropdown_buttons[i].sdlkey = (SDL_Keysym){.scancode = SDL_SCANCODE_C, .sym = SDLK_c};
 				break;
-			case 6: // 
+			case 6: // m68k menu 
 				dropdown_buttons[i].x = originX;
 				dropdown_buttons[i].y = originY + (size * i) - 1;
 				break;
@@ -508,6 +509,11 @@ int dropdown_button_pressed(SDL_Event *event)
 					}
 				}
 
+				if (i == 6)
+				{
+					toggle_m68k_menu = !toggle_m68k_menu;
+				}
+
 				SDL_Keysym sdlkey = dropdown_buttons[i].sdlkey;
 
 				if (i == 2 || i == 3)
@@ -698,6 +704,8 @@ void handle_button_state(int index)
 
 	current_button_index = -1;
 	// printf("view state %s\n", view_names[current_view]);
+
+	public_view = current_view;
 }
 
 // ================== virtual joystick ==================

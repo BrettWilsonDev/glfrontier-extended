@@ -11,7 +11,9 @@
 #include "input.h"
 
 #include "touch_input.h"
-#include "utils.h"
+
+#include "nuklear_sdl_impl.h"
+#include "render_nuklear.h"
 
 unsigned long VideoBase;	/* Base address in ST Ram for screen(read on each VBL) */
 unsigned char *VideoRaster; /* Pointer to Video raster, after VideoBase in PC address space. Use to copy data on HBL */
@@ -119,6 +121,9 @@ void Screen_Init(void)
 	float scaleY = (float)drawableH / windowH;
 
 	SDL_RenderSetScale(sdlRenderer, scaleX, scaleY);
+
+	nuklear_init_sdl(sdlWindow, sdlRenderer);
+	nuklear_set_sdl_screen_data(sdlWindow, sdlRenderer);
 }
 
 void Screen_UnInit(void)
@@ -593,39 +598,42 @@ void draw_arrow_touch_icon(float x, float y, float scale)
 	SDL_RenderDrawRectF(sdlRenderer, &right);
 }
 
-void draw_zoom_icon(float centerX, float centerY, float radius, char symbol) {
-    const int segments = 32; // more segments = smoother circle
-    const float lineWidth = radius * 0.6f;
+void draw_zoom_icon(float centerX, float centerY, float radius, char symbol)
+{
+	const int segments = 32; // more segments = smoother circle
+	const float lineWidth = radius * 0.6f;
 
-    // Draw circle outline using line segments
-    for (int i = 0; i < segments; ++i) {
-        float theta1 = 2.0f * M_PI * i / segments;
-        float theta2 = 2.0f * M_PI * (i + 1) / segments;
+	// Draw circle outline using line segments
+	for (int i = 0; i < segments; ++i)
+	{
+		float theta1 = 2.0f * M_PI * i / segments;
+		float theta2 = 2.0f * M_PI * (i + 1) / segments;
 
-        float x1 = centerX + cosf(theta1) * radius;
-        float y1 = centerY + sinf(theta1) * radius;
-        float x2 = centerX + cosf(theta2) * radius;
-        float y2 = centerY + sinf(theta2) * radius;
+		float x1 = centerX + cosf(theta1) * radius;
+		float y1 = centerY + sinf(theta1) * radius;
+		float x2 = centerX + cosf(theta2) * radius;
+		float y2 = centerY + sinf(theta2) * radius;
 
-        SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
-    }
+		SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
+	}
 
-    // Draw symbol inside
-    if (symbol == '+' || symbol == 'p') {
-        // Vertical line
-        SDL_RenderDrawLineF(sdlRenderer,
-            centerX, centerY - lineWidth / 2,
-            centerX, centerY + lineWidth / 2);
-    }
+	// Draw symbol inside
+	if (symbol == '+' || symbol == 'p')
+	{
+		// Vertical line
+		SDL_RenderDrawLineF(sdlRenderer,
+							centerX, centerY - lineWidth / 2,
+							centerX, centerY + lineWidth / 2);
+	}
 
-    if (symbol == '+' || symbol == '-' || symbol == 'm') {
-        // Horizontal line
-        SDL_RenderDrawLineF(sdlRenderer,
-            centerX - lineWidth / 2, centerY,
-            centerX + lineWidth / 2, centerY);
-    }
+	if (symbol == '+' || symbol == '-' || symbol == 'm')
+	{
+		// Horizontal line
+		SDL_RenderDrawLineF(sdlRenderer,
+							centerX - lineWidth / 2, centerY,
+							centerX + lineWidth / 2, centerY);
+	}
 }
-
 
 void draw_p_icon(float centerX, float centerY, float scale)
 {
@@ -663,109 +671,116 @@ void draw_p_icon(float centerX, float centerY, float scale)
 						startX + loopWidth, startY + loopHeight);
 }
 
-void draw_c_icon(float centerX, float centerY, float scale) {
-    const float baseRadius = 10.0f;
-    const float baseThickness = 1.0f;
-    const int segments = 40;
+void draw_c_icon(float centerX, float centerY, float scale)
+{
+	const float baseRadius = 10.0f;
+	const float baseThickness = 1.0f;
+	const int segments = 40;
 
-    float radius = baseRadius * scale;
-    float thickness = baseThickness * scale;
+	float radius = baseRadius * scale;
+	float thickness = baseThickness * scale;
 
-    const float startAngle = M_PI / 4;          // 45 degrees
-    const float endAngle = M_PI * 7 / 4;        // 315 degrees
+	const float startAngle = M_PI / 4;	 // 45 degrees
+	const float endAngle = M_PI * 7 / 4; // 315 degrees
 
-    // Outer arc
-    for (int i = 0; i < segments; ++i) {
-        float t1 = startAngle + (endAngle - startAngle) * i / segments;
-        float t2 = startAngle + (endAngle - startAngle) * (i + 1) / segments;
+	// Outer arc
+	for (int i = 0; i < segments; ++i)
+	{
+		float t1 = startAngle + (endAngle - startAngle) * i / segments;
+		float t2 = startAngle + (endAngle - startAngle) * (i + 1) / segments;
 
-        float x1 = centerX + cosf(t1) * radius;
-        float y1 = centerY + sinf(t1) * radius;
-        float x2 = centerX + cosf(t2) * radius;
-        float y2 = centerY + sinf(t2) * radius;
+		float x1 = centerX + cosf(t1) * radius;
+		float y1 = centerY + sinf(t1) * radius;
+		float x2 = centerX + cosf(t2) * radius;
+		float y2 = centerY + sinf(t2) * radius;
 
-        SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
-    }
+		SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
+	}
 
-    // Simulate thickness by drawing inner arcs
-    for (float r = radius - thickness; r < radius; r += 1.0f) {
-        for (int i = 0; i < segments; ++i) {
-            float t1 = startAngle + (endAngle - startAngle) * i / segments;
-            float t2 = startAngle + (endAngle - startAngle) * (i + 1) / segments;
+	// Simulate thickness by drawing inner arcs
+	for (float r = radius - thickness; r < radius; r += 1.0f)
+	{
+		for (int i = 0; i < segments; ++i)
+		{
+			float t1 = startAngle + (endAngle - startAngle) * i / segments;
+			float t2 = startAngle + (endAngle - startAngle) * (i + 1) / segments;
 
-            float x1 = centerX + cosf(t1) * r;
-            float y1 = centerY + sinf(t1) * r;
-            float x2 = centerX + cosf(t2) * r;
-            float y2 = centerY + sinf(t2) * r;
+			float x1 = centerX + cosf(t1) * r;
+			float y1 = centerY + sinf(t1) * r;
+			float x2 = centerX + cosf(t2) * r;
+			float y2 = centerY + sinf(t2) * r;
 
-            SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
-        }
-    }
+			SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
+		}
+	}
 }
 
-void draw_cogwheel_icon(float centerX, float centerY, float scale) {
-    const int toothCount = 8;
-    const float outerRadius = 16.0f * scale;
-    const float innerRadius = 10.0f * scale;
-    const float centerHoleRadius = 4.0f * scale;
+void draw_cogwheel_icon(float centerX, float centerY, float scale)
+{
+	const int toothCount = 8;
+	const float outerRadius = 16.0f * scale;
+	const float innerRadius = 10.0f * scale;
+	const float centerHoleRadius = 4.0f * scale;
 
-    const float toothWidthAngle = M_PI / (toothCount * 2); // half-tooth gap
-    const float fullCircle = 2.0f * M_PI;
+	const float toothWidthAngle = M_PI / (toothCount * 2); // half-tooth gap
+	const float fullCircle = 2.0f * M_PI;
 
-    // Draw outer gear shape (teeth)
-    for (int i = 0; i < toothCount; ++i) {
-        float angle = i * (fullCircle / toothCount);
+	// Draw outer gear shape (teeth)
+	for (int i = 0; i < toothCount; ++i)
+	{
+		float angle = i * (fullCircle / toothCount);
 
-        float a1 = angle - toothWidthAngle;
-        float a2 = angle + toothWidthAngle;
+		float a1 = angle - toothWidthAngle;
+		float a2 = angle + toothWidthAngle;
 
-        // Tooth lines (2 lines per tooth)
-        float x1 = centerX + cosf(a1) * outerRadius;
-        float y1 = centerY + sinf(a1) * outerRadius;
-        float x2 = centerX + cosf(a2) * outerRadius;
-        float y2 = centerY + sinf(a2) * outerRadius;
+		// Tooth lines (2 lines per tooth)
+		float x1 = centerX + cosf(a1) * outerRadius;
+		float y1 = centerY + sinf(a1) * outerRadius;
+		float x2 = centerX + cosf(a2) * outerRadius;
+		float y2 = centerY + sinf(a2) * outerRadius;
 
-        float innerX1 = centerX + cosf(a1) * innerRadius;
-        float innerY1 = centerY + sinf(a1) * innerRadius;
-        float innerX2 = centerX + cosf(a2) * innerRadius;
-        float innerY2 = centerY + sinf(a2) * innerRadius;
+		float innerX1 = centerX + cosf(a1) * innerRadius;
+		float innerY1 = centerY + sinf(a1) * innerRadius;
+		float innerX2 = centerX + cosf(a2) * innerRadius;
+		float innerY2 = centerY + sinf(a2) * innerRadius;
 
-        // Two radial lines (tooth sides)
-        SDL_RenderDrawLineF(sdlRenderer, innerX1, innerY1, x1, y1);
-        SDL_RenderDrawLineF(sdlRenderer, innerX2, innerY2, x2, y2);
+		// Two radial lines (tooth sides)
+		SDL_RenderDrawLineF(sdlRenderer, innerX1, innerY1, x1, y1);
+		SDL_RenderDrawLineF(sdlRenderer, innerX2, innerY2, x2, y2);
 
-        // Outer arc line across the tooth tip
-        SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
-    }
+		// Outer arc line across the tooth tip
+		SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
+	}
 
-    // Draw inner gear circle
-    const int segments = 40;
-    for (int i = 0; i < segments; ++i) {
-        float t1 = fullCircle * i / segments;
-        float t2 = fullCircle * (i + 1) / segments;
+	// Draw inner gear circle
+	const int segments = 40;
+	for (int i = 0; i < segments; ++i)
+	{
+		float t1 = fullCircle * i / segments;
+		float t2 = fullCircle * (i + 1) / segments;
 
-        float x1 = centerX + cosf(t1) * innerRadius;
-        float y1 = centerY + sinf(t1) * innerRadius;
-        float x2 = centerX + cosf(t2) * innerRadius;
-        float y2 = centerY + sinf(t2) * innerRadius;
+		float x1 = centerX + cosf(t1) * innerRadius;
+		float y1 = centerY + sinf(t1) * innerRadius;
+		float x2 = centerX + cosf(t2) * innerRadius;
+		float y2 = centerY + sinf(t2) * innerRadius;
 
-        SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
-    }
+		SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
+	}
 
-    // Draw center hole
-    for (int i = 0; i < segments; ++i) {
-        float t1 = fullCircle * i / segments;
-        float t2 = fullCircle * (i + 1) / segments;
+	// Draw center hole
+	for (int i = 0; i < segments; ++i)
+	{
+		float t1 = fullCircle * i / segments;
+		float t2 = fullCircle * (i + 1) / segments;
 
-        float x1 = centerX + cosf(t1) * centerHoleRadius;
-        float y1 = centerY + sinf(t1) * centerHoleRadius;
-        float x2 = centerX + cosf(t2) * centerHoleRadius;
-        float y2 = centerY + sinf(t2) * centerHoleRadius;
+		float x1 = centerX + cosf(t1) * centerHoleRadius;
+		float y1 = centerY + sinf(t1) * centerHoleRadius;
+		float x2 = centerX + cosf(t2) * centerHoleRadius;
+		float y2 = centerY + sinf(t2) * centerHoleRadius;
 
-        SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
-    }
+		SDL_RenderDrawLineF(sdlRenderer, x1, y1, x2, y2);
+	}
 }
-
 
 void draw_touch_controls()
 {
@@ -783,7 +798,7 @@ void draw_touch_controls()
 		int arrowSpacing = arrow_buttons[0].height;
 
 		// Draw the arrows relative to the origin
-		draw_arrow_icon(sdlRenderer, originX, originY, size, size, color, 0, 2);				  // down arrow
+		draw_arrow_icon(sdlRenderer, originX, originY, size, size, color, 0, 2);				// down arrow
 		draw_arrow_icon(sdlRenderer, originX - arrowSpacing, originY, size, size, color, 1, 2); // left arrow
 		draw_arrow_icon(sdlRenderer, originX, originY - arrowSpacing, size, size, color, 2, 2); // up arrow
 		draw_arrow_icon(sdlRenderer, originX + arrowSpacing, originY, size, size, color, 3, 2); // right arrow
@@ -844,7 +859,6 @@ void draw_touch_controls()
 		{
 			draw_cogwheel_icon(dropdown_buttons[i].x + dropdown_buttons[i].width / 2, (dropdown_buttons[i].y + dropdown_buttons[i].height / 2), 0.8);
 		}
-		
 	}
 }
 
@@ -868,10 +882,14 @@ void draw_debug_blocks()
 
 static void draw_on_top_of_screen()
 {
-
-	if (toggleTouchControls)
+	if (toggle_m68k_menu)
+	{
+		render_nuklear();
+	}
+	if (toggle_touch_controls)
 		draw_touch_controls();
-	// draw_debug_blocks();
+	if (toggle_debug_draw)
+		draw_debug_blocks();
 }
 
 // ======================================================================================================

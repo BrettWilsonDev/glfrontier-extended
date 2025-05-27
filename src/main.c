@@ -24,6 +24,8 @@
 
 #include "touch_input.h"
 
+#include "nuklear_sdl_impl.h"
+
 #define FORCE_WORKING_DIR /* Set default directory to cwd */
 
 BOOL bQuitProgram = FALSE; /* Flag to quit program cleanly */
@@ -35,8 +37,12 @@ char szBootDiscImage[MAX_FILENAME_LENGTH] = {""};
 char szWorkingDir[MAX_FILENAME_LENGTH] = {""};
 char szCurrentDir[MAX_FILENAME_LENGTH] = {""};
 
-bool toggleRightClick = FALSE; // used to toggle the mouse grab
-bool toggleTouchControls = FALSE;
+bool toggle_right_click = FALSE; // used to toggle the mouse grab
+bool toggle_touch_controls = FALSE;
+bool toggle_m68k_menu = FALSE;
+bool toggle_fps_draw = FALSE;
+
+int emulation_speed = 20;
 
 /*-----------------------------------------------------------------------*/
 /*
@@ -118,16 +124,20 @@ void Main_EventHandler()
 {
 	SDL_Event event;
 
+	nk_input_begin(nk_ctx);
+
 	while (SDL_PollEvent(&event))
 	{
+		nk_sdl_handle_event(&event);
+
 		// Toggle touch controls on or off based if there is touch input
-		if ((event.type == SDL_FINGERDOWN || event.type == SDL_FINGERUP || event.type == SDL_FINGERMOTION) && toggleTouchControls != 1)
+		if ((event.type == SDL_FINGERDOWN || event.type == SDL_FINGERUP || event.type == SDL_FINGERMOTION) && toggle_touch_controls != 1)
 		{
-			toggleTouchControls = 1;
+			toggle_touch_controls = 1;
 		}
 
 		// Handle virtual joystick in one place
-		if (toggleTouchControls)
+		if (toggle_touch_controls)
 		{
 			handle_touch_inputs(&event);
 		}
@@ -148,7 +158,7 @@ void Main_EventHandler()
 			break;
 
 		case SDL_MOUSEBUTTONDOWN:
-			if (toggleTouchControls == 0)
+			if (toggle_touch_controls == 0)
 			{
 				// hacky fix for the system map view left click
 				if (systemview_button(&event))
@@ -174,12 +184,16 @@ void Main_EventHandler()
 			if ((event.key.keysym.sym == SDLK_m) &&
 				(event.key.keysym.mod & (KMOD_LCTRL | KMOD_RCTRL)))
 			{
-				toggleRightClick = !toggleRightClick;
+				toggle_right_click = !toggle_right_click;
 
-				if (toggleRightClick)
+				if (toggle_right_click)
 					Input_MousePress(SDL_BUTTON_RIGHT);
 				else
 					Input_MouseRelease(SDL_BUTTON_RIGHT);
+			}
+			if ((event.key.keysym.sym == SDLK_f) && (event.key.keysym.mod & (KMOD_LCTRL | KMOD_RCTRL)))
+			{
+				toggle_m68k_menu = !toggle_m68k_menu;
 			}
 			Keymap_KeyDown(&event.key.keysym);
 			break;
@@ -189,6 +203,8 @@ void Main_EventHandler()
 			break;
 		}
 	}
+
+	nk_input_end(nk_ctx);
 
 	Input_Update();
 }
@@ -287,6 +303,8 @@ void Main_UnInit(void)
 
 static Uint32 vbl_callback(Uint32 interval, void *param)
 {
+	interval = emulation_speed;
+
 	FlagException(0);
 	return interval;
 }
