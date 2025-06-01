@@ -173,7 +173,7 @@ void c_begin (const char *src_filename, const char *bin_filename)
 	cout ("void Start680x0 ()\n{\n");
 	cout ("\ts32 i, jdest = 0x1c;\n");
 	cout ("\tRegs[15]._u32 = MEM_SIZE;\n\n");
-	cout ("jumptable:\n\tswitch (jdest) {\n");
+	cout ("jumptable:\n\tmanage_m68k_ram();\n\tswitch (jdest) {\n");
 }
 
 void c_end (const char *src_filename)

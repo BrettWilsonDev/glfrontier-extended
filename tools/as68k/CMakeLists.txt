@@ -18,7 +18,7 @@ message(STATUS "Building as68k tool...")
 # Add the executable target
 add_executable(as68k ${SOURCES})
 
-set(script_name "build-fe2-bin-c.bat")
+set(script_name "build-fe2-bin-c")
 # Windows custom target
 add_custom_target(build_script_windows
     COMMAND ${CMAKE_COMMAND} -E echo "@echo off" > ${CMAKE_BINARY_DIR}/${script_name}.bat VERBATIM
@@ -36,6 +36,9 @@ add_custom_target(build_script_unix
 )
 if(WIN32)
     add_dependencies(as68k build_script_windows)
+    # if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+    #     file(COPY ${CMAKE_BINARY_DIR}/${script_name} DESTINATION ${CMAKE_BINARY_DIR}/Release)
+    # endif()
 else()
     add_dependencies(as68k build_script_unix)
 endif()

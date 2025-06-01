@@ -1,6 +1,4 @@
-# Nuklear
-
-[![](https://github.com/Immediate-Mode-UI/Nuklear/workflows/C%2FC++%20CI/badge.svg )](https://github.com/Immediate-Mode-UI/Nuklear/actions)
+# [Nuklear](https://github.com/Immediate-Mode-UI/Nuklear)
 
 This is a minimal-state, immediate-mode graphical user interface toolkit
 written in ANSI C and licensed under public domain. It was designed as a simple
@@ -43,15 +41,6 @@ The implementation mode requires defining the preprocessor macro
 IMPORTANT: Every time you include "nuklear.h" you have to define the same optional flags.
 This is very important; not doing it either leads to compiler errors, or even worse, stack corruptions.
 
-## Gallery
-
-![screenshot](https://cloud.githubusercontent.com/assets/8057201/11761525/ae06f0ca-a0c6-11e5-819d-5610b25f6ef4.gif)
-![screen](https://cloud.githubusercontent.com/assets/8057201/13538240/acd96876-e249-11e5-9547-5ac0b19667a0.png)
-![screen2](https://cloud.githubusercontent.com/assets/8057201/13538243/b04acd4c-e249-11e5-8fd2-ad7744a5b446.png)
-![node](https://cloud.githubusercontent.com/assets/8057201/9976995/e81ac04a-5ef7-11e5-872b-acd54fbeee03.gif)
-![skinning](https://cloud.githubusercontent.com/assets/8057201/15991632/76494854-30b8-11e6-9555-a69840d0d50b.png)
-![gamepad](https://cloud.githubusercontent.com/assets/8057201/14902576/339926a8-0d9c-11e6-9fee-a8b73af04473.png)
-
 ## Example
 
 ```c
@@ -89,8 +78,6 @@ if (nk_begin(&ctx, "Show", nk_rect(50, 50, 220, 220),
 }
 nk_end(&ctx);
 ```
-![example](https://cloud.githubusercontent.com/assets/8057201/10187981/584ecd68-675c-11e5-897c-822ef534a876.png)
-
 ## Bindings
 There are a number of nuklear bindings for different languages created by other authors.
 I cannot attest for their quality since I am not necessarily proficient in any of these

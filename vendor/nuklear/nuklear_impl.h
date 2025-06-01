@@ -1,0 +1,1 @@
+extern struct nk_context *nk_ctx;

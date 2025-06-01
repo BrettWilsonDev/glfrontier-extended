@@ -2233,6 +2233,58 @@ int asm_pass2 (int fixup_pos)
 	return num_relocs;
 }
 
+
+int write_bin_as_header(FILE *infile, const char *var_name, const char *header_filename) {
+    FILE *outfile = fopen(header_filename, "w");
+    if (!outfile) {
+        perror("Failed to open output file");
+        return -1;
+    }
+
+    // Determine size of binary file
+    fseek(infile, 0, SEEK_END);
+    size_t size = ftell(infile);
+    rewind(infile);
+
+    // Read binary data
+    unsigned char *buffer = malloc(size);
+    if (!buffer) {
+        fclose(outfile);
+        fprintf(stderr, "Memory allocation failed\n");
+        return -1;
+    }
+    fread(buffer, 1, size, infile);
+
+    // Generate include guard name from variable name
+    char guard_name[256];
+    snprintf(guard_name, sizeof(guard_name), "__%s_H__", var_name);
+    for (char *p = guard_name; *p; ++p) {
+        if (*p >= 'a' && *p <= 'z') *p = *p - 32;
+        else if (!((*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9'))) *p = '_';
+    }
+
+    // Write header
+    fprintf(outfile, "#ifndef %s\n", guard_name);
+    fprintf(outfile, "#define %s\n\n", guard_name);
+    fprintf(outfile, "unsigned char %s[] = {\n", var_name);
+
+    for (size_t i = 0; i < size; ++i) {
+        if (i % 12 == 0) fprintf(outfile, "  ");
+        fprintf(outfile, "0x%02x", buffer[i]);
+        if (i < size - 1) fprintf(outfile, ", ");
+        if ((i + 1) % 12 == 0) fprintf(outfile, "\n");
+    }
+    if (size % 12 != 0) fprintf(outfile, "\n");
+    fprintf(outfile, "};\n");
+    fprintf(outfile, "unsigned int %s_len = %zu;\n\n", var_name, size);
+    fprintf(outfile, "#endif // %s\n", guard_name);
+
+    // Clean up
+    free(buffer);
+    fclose(outfile);
+    return 0;
+}
+
 int main (int argc, char **argv)
 {
 	int arg, size, num;
@@ -2286,6 +2338,12 @@ int main (int argc, char **argv)
 	wr_int (size);
 	
 	fprintf (stderr, "Done! %d bytes and %d relocations.\n", size, num);
+
+	FILE *f = fopen("fe2.s.bin", "rb");
+	if (f) {
+		write_bin_as_header(f, "fe2_s_bin", "fe2_bin.h");
+		fclose(f);
+	}
 		
 	return 0;
 }
