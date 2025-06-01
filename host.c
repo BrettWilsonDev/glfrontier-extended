@@ -157,7 +157,7 @@ void load_binfile(const char *bin_filename)
     unsigned char *bin_data = fe2_s_bin;
     unsigned int len = fe2_s_bin_len;
 
-    assert(len + LOAD_BASE < MEM_SIZE);    // Ensure we don't exceed memory bounds
+    assert(len + LOAD_BASE < MEM_SIZE);         // Ensure we don't exceed memory bounds
     memcpy(m68kram + LOAD_BASE, bin_data, len); // Load binary into RAM
 
     buf_pos = LOAD_BASE + 2;

@@ -24,7 +24,7 @@
 
 #include "touch_input.h"
 
-#include "nuklear_sdl_impl.h"
+#include "nuklear_impl.h"
 
 #define FORCE_WORKING_DIR /* Set default directory to cwd */
 

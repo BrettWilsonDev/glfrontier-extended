@@ -1,3 +1,4 @@
+#include "../m68000.h"
 #include "main.h"
 #include "keymap.h"
 #include "input.h"
@@ -9,6 +10,10 @@
 #ifndef NK_TEXT_WRAP
 #define NK_TEXT_WRAP 0x10
 #endif
+
+int dump_m68k_toggle = 0;
+int inject_cash_value = 0;
+int cash_value[4] = {0, 0, 0, 0};
 
 bool toggle_debug_draw = FALSE;
 
@@ -26,7 +31,8 @@ enum section
     HOME,
     ABOUT,
     DEBUG,
-    DEBUG_SETTINGS
+    DEBUG_SETTINGS,
+    CHEATS,
 };
 
 static enum section current_section = HOME;
@@ -65,9 +71,6 @@ void nk_text_multiline(struct nk_context *ctx, const char *text)
 void display_about(void)
 {
     current_section = ABOUT;
-
-    // Make sure layout is dynamic and takes full width
-    // nk_layout_row_dynamic(nk_ctx, 15, 1); // 0 = auto height
 
     const char *text =
         "Original author:\n"
@@ -138,7 +141,6 @@ void display_debug_settings()
         SDL_Keysym sdlkey = (SDL_Keysym){.scancode = SDL_SCANCODE_F, .sym = SDLK_f};
         Keymap_KeyDown(&sdlkey);
         Keymap_KeyUp(&sdlkey);
-        // Input_Update();
     }
     if (nk_button_label(nk_ctx, "Debug Draw"))
     {
@@ -149,27 +151,90 @@ void display_debug_settings()
         toggle_touch_controls = !toggle_touch_controls;
     }
 
-    // nk_label(nk_ctx, "Emulation Speed.", NK_TEXT_LEFT);
-    // nk_label(nk_ctx, "Default is 20.", NK_TEXT_LEFT);
-    nk_text_multiline(nk_ctx, "Emulation Speed\nDefault is 20.");
+    if (nk_button_label(nk_ctx, "Dump m68k memory"))
+    {
+        dump_m68k_toggle = 1;
+    }
+
+    nk_text_multiline(nk_ctx, "Emulator Speed\nDefault is 20ms.");
     nk_slider_int(nk_ctx, 0.0, &emulation_speed, 100, 1);
     char buffer[32];
     if (emulation_speed == 0)
     {
         emulation_speed = 1;
     }
-    sprintf(buffer, "%d", emulation_speed);
+    sprintf(buffer, "Current: %dms", emulation_speed);
     nk_label(nk_ctx, buffer, NK_TEXT_LEFT);
 }
 
-void sdl_nk_render()
+int value1 = 0;
+void display_cheat_menu()
+{
+    current_section = CHEATS;
+
+    nk_layout_row_dynamic(nk_ctx, 15, 1);
+    nk_text_multiline(nk_ctx, "Increase CASH Amount:");
+
+    nk_text_multiline(nk_ctx, "Set The CASH Value To?:");
+
+    if (nk_button_label(nk_ctx, "0"))
+    {
+        cash_value[0] = 0;
+        cash_value[1] = 0;
+        cash_value[2] = 0;
+        cash_value[3] = 0;
+        inject_cash_value = 1;
+    }
+    if (nk_button_label(nk_ctx, "100"))
+    {
+        cash_value[0] = 0;
+        cash_value[1] = 0;
+        cash_value[2] = 3;
+        cash_value[3] = 232;
+        inject_cash_value = 1;
+    }
+    if (nk_button_label(nk_ctx, "1,000"))
+    {
+        cash_value[0] = 0;
+        cash_value[1] = 0;
+        cash_value[2] = 39;
+        cash_value[3] = 16;
+        inject_cash_value = 1;
+    }
+    if (nk_button_label(nk_ctx, "1,000,000"))
+    {
+        cash_value[0] = 0;
+        cash_value[1] = 152;
+        cash_value[2] = 150;
+        cash_value[3] = 128;
+        inject_cash_value = 1;
+    }
+    if (nk_button_label(nk_ctx, "10,000,000"))
+    {
+        cash_value[0] = 5;
+        cash_value[1] = 245;
+        cash_value[2] = 225;
+        cash_value[3] = 0;
+        inject_cash_value = 1;
+    }
+    if (nk_button_label(nk_ctx, "MAX AMOUNT POSSIBLE"))
+    {
+        cash_value[0] = 127;
+        cash_value[1] = 255;
+        cash_value[2] = 255;
+        cash_value[3] = 255;
+        inject_cash_value = 1;
+    }
+}
+
+void nk_render()
 {
     if (nk_begin(nk_ctx, "M68k Menu", nk_rect(0, 40, 180, 330),
                  NK_WINDOW_BORDER | NK_WINDOW_TITLE))
     {
         nk_layout_row_dynamic(nk_ctx, 0, 1);
 
-        if (current_section == ABOUT || current_section == DEBUG || current_section == DEBUG_SETTINGS)
+        if (current_section == ABOUT || current_section == DEBUG || current_section == DEBUG_SETTINGS || current_section == CHEATS)
         {
             if (nk_button_label(nk_ctx, "BACK"))
             {
@@ -184,7 +249,7 @@ void sdl_nk_render()
             }
             if (current_section == DEBUG)
             {
-                if (nk_button_label(nk_ctx, "SETTINGS"))
+                if (nk_button_label(nk_ctx, "OPTIONS"))
                 {
                     current_section = DEBUG_SETTINGS;
                 }
@@ -196,9 +261,17 @@ void sdl_nk_render()
             {
                 current_section = ABOUT;
             }
+            if ((nk_button_label(nk_ctx, "CHEATS")) || current_section == CHEATS)
+            {
+                current_section = CHEATS;
+            }
             if ((nk_button_label(nk_ctx, "DEBUG")) || current_section == DEBUG)
             {
                 current_section = DEBUG;
+            }
+            if ((nk_button_label(nk_ctx, "CLOSE")))
+            {
+                toggle_m68k_menu = 0;
             }
         }
 
@@ -208,6 +281,9 @@ void sdl_nk_render()
             break;
         case ABOUT:
             display_about();
+            break;
+        case CHEATS:
+            display_cheat_menu();
             break;
         case DEBUG:
             display_debug(sdlWindow, sdlRenderer);
@@ -222,6 +298,11 @@ void sdl_nk_render()
         }
     }
     nk_end(nk_ctx);
+}
+
+void sdl_nk_render()
+{
+    nk_render();
 
     nk_sdl_render(NK_ANTI_ALIASING_ON);
 }

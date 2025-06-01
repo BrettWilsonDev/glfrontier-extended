@@ -24,7 +24,7 @@ option(USE_GL_RENDERER "Use OpenGL renderer instead of software based SDL intern
 
 # this is here to ensure the runtime is linked staticly for msvc
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
     else()
         set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
@@ -35,7 +35,7 @@ endif()
 # Platform Configuration
 ##########################################################################################
 
-if (NOT DEFINED PLATFORM)
+if(NOT DEFINED PLATFORM)
     set(PLATFORM "default")
 endif()
 
@@ -49,16 +49,16 @@ set(LIBRARIES ${PROJECT_NAME})
 include(FetchContent)
 function(add_git_dependency libName gitURL gitTag)
 
-        FetchContent_Declare(${libName}
-            GIT_REPOSITORY ${gitURL}
-            GIT_TAG        ${gitTag}
-            GIT_SHALLOW    TRUE
-            GIT_PROGRESS   TRUE
-        )
+    FetchContent_Declare(${libName}
+        GIT_REPOSITORY ${gitURL}
+        GIT_TAG ${gitTag}
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
+    )
 
-        if(NOT ("${libName}" STREQUAL "libname"))
-            FetchContent_MakeAvailable(${libName})
-        endif()
+    if(NOT ("${libName}" STREQUAL "libname"))
+        FetchContent_MakeAvailable(${libName})
+    endif()
 
 endfunction()
 
@@ -105,13 +105,13 @@ if(USE_SDL2 AND NOT ${PLATFORM} STREQUAL "Web")
         https://github.com/libsdl-org/SDL.git
         SDL2
     )
-    
+
     FetchContent_GetProperties(${dep})
     if(NOT ${dep}_POPULATED)
     endif()
 
     list(APPEND LIBRARIES SDL2main)
-    
+
     if(BUILD_SDL_SHARED_LIB)
         list(APPEND LIBRARIES SDL2)
     else()
@@ -124,9 +124,9 @@ endif()
 if((USE_SDL2) AND (${PLATFORM} STREQUAL "Web"))
     FetchContent_Declare(SDL2
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-        GIT_TAG        SDL2
-        GIT_SHALLOW    TRUE
-        GIT_PROGRESS   TRUE
+        GIT_TAG SDL2
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
     )
 
     if(NOT SDL2_POPULATED)
@@ -168,7 +168,7 @@ target_include_directories(nuklear PUBLIC ${sdl2_SOURCE_DIR}/include)
 list(APPEND LIBRARIES nuklear)
 
 ##########################################################################################
-# emulator setup
+# FE2 m68k emulator setup
 ##########################################################################################
 
 find_package(OpenGL REQUIRED)
@@ -182,13 +182,13 @@ add_definitions(-DOGG_MUSIC)
 add_definitions(-DLITTLE_ENDIAN)
 
 # disable the warnings flood
-if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
-elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-everything")
 endif()
 
-if (${PLATFORM} STREQUAL "Web")
+if(${PLATFORM} STREQUAL "Web")
     # for now until gl support is added  
     set(USE_GL_RENDERER OFF CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE)
 
@@ -198,9 +198,10 @@ else()
     # set(USE_GL_RENDERER OFF CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE)
 
     add_library(fe2_part_one OBJECT fe2/fe2.s.c)
-    target_compile_options(fe2_part_one PRIVATE -DPART1 -O2 -fomit-frame-pointer -fcommon)
+    target_compile_options(fe2_part_one PRIVATE -DPART1 -O1 -fomit-frame-pointer -fcommon)
     list(APPEND LIBRARIES fe2_part_one)
-    
+
+    # add_library(fe2_part_two OBJECT fe2/fe2.s.c)
     add_library(fe2_part_two OBJECT fe2/fe2.s.c)
     target_compile_options(fe2_part_two PRIVATE -DPART2 -O0 -fomit-frame-pointer -fcommon)
     list(APPEND LIBRARIES fe2_part_two)
@@ -253,31 +254,31 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INCLUDE})
 ##########################################################################################
 
 if(NOT ${PLATFORM} STREQUAL "Web")
-    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++ -static -pthread")
         target_link_libraries(${LIBRARIES} -static-libgcc -static-libstdc++ -static -lpthread -Wl,-Bstatic -lstdc++)
         # target_link_libraries(${LIBRARIES})
-        if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
         endif()
-    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "GNU")
         target_link_libraries(${LIBRARIES} -static-libgcc -static-libstdc++ -static -pthread -Wl,-Bstatic -lstdc++)
         # target_link_libraries(${LIBRARIES})
-    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_C_COMPILER_ID STREQUAL "Intel")
-        target_link_libraries(${LIBRARIES} -static-intel -lpthread -Wl,-Bstatic -lstdc++) 
-    elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_C_COMPILER_ID STREQUAL "Intel")
+        target_link_libraries(${LIBRARIES} -static-intel -lpthread -Wl,-Bstatic -lstdc++)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_COMPILER_ID STREQUAL "MSVC")
         target_link_libraries(${LIBRARIES})
 
         if(OFF)
-            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")  
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
         endif()
 
         # dont forget to set  "cmake.configureSettings": { "CMAKE_BUILD_TYPE": "${buildType}" } in settings.json for vs code
-        if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
             message("-- console enabled")
             set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
         else()
-            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")  
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
         endif()
     else()
         target_link_libraries(${LIBRARIES})
@@ -290,7 +291,7 @@ endif()
 # Build flags and additional settings
 ##########################################################################################
 
-add_definitions( -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} )
+add_definitions(-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
 
 # for web build when using emscripten
 if(ASYNCIFY)
@@ -299,12 +300,12 @@ if(ASYNCIFY)
 endif()
 
 # Setting ASSETS_PATH
-if (CMAKE_BUILD_TYPE MATCHES "Debug")
-    SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -O0 -DDEBUG")
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -DDEBUG")
     message("-- console enabled")
     if(NOT noAssets AND NOT ${PLATFORM} STREQUAL "Web")
         # Set the asset path macro to the absolute path on the dev machine
-        target_compile_definitions(${PROJECT_NAME} PUBLIC ASSETS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/")   
+        target_compile_definitions(${PROJECT_NAME} PUBLIC ASSETS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/")
     endif()
 else()
     # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG")
@@ -314,16 +315,16 @@ else()
     endif()
     if(WIN32)
         if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
-            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mwindows") 
-        endif()    
-      add_compile_definitions(NDEBUG)
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mwindows")
+        endif()
+        add_compile_definitions(NDEBUG)
     endif()
 endif()
 
 # Set common compiler flags
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 
-if (${PLATFORM} STREQUAL "Web")
+if(${PLATFORM} STREQUAL "Web")
     # Tell Emscripten to build an .html file.
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Os")
@@ -339,8 +340,8 @@ if (${PLATFORM} STREQUAL "Web")
 endif()
 
 # Ensure that hot-reload is enabled for VS
-if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /ZI")
-  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
+if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC" OR CMAKE_C_COMPILER_ID MATCHES "MSVC")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /ZI")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
 endif()

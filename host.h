@@ -193,3 +193,120 @@ static inline void wrlong(u32 pos, int val)
 #ifdef M68K_DEBUG
 void m68k_print_line_no();
 #endif /* M68K_DEBUG */
+
+// ============================ m68k memory editing ============================
+extern int inject_cash_value;
+extern int cash_value[4];
+static inline void edit_cash_values()
+{
+	if (inject_cash_value)
+	{
+		const u8 expected_bytes[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xA9, 0x25};
+		u32 start = 0;
+		u32 len = sizeof(expected_bytes);
+		for (u32 pos = start; pos < MEM_SIZE - len; pos++)
+		{
+			int match = 1;
+			for (u32 i = 0; i < len; i++)
+			{
+				if ((u8)rdbyte(pos + i) != expected_bytes[i])
+				{
+					match = 0;
+					break;
+				}
+			}
+			if (match)
+			{
+				int tPos = 0;
+				for (u32 offset = len;; offset++)
+				{
+					u8 byte = (u8)rdbyte(pos + offset);
+					if (byte == 0x40)
+					{
+						break;
+					}
+					if (tPos == 6)
+					{
+						wrbyte(pos + offset, cash_value[0]);
+					}
+					if (tPos == 7)
+					{
+						wrbyte(pos + offset, cash_value[1]);
+					}
+					if (tPos == 8)
+					{
+						wrbyte(pos + offset, cash_value[2]);
+					}
+					if (tPos == 9)
+					{
+						wrbyte(pos + offset, cash_value[3]);
+					}
+					tPos++;
+				}
+				break;
+			}
+		}
+		inject_cash_value = 0;
+	}
+}
+
+extern int dump_m68k_toggle;
+static inline void dump_all_m68k_ram()
+{
+	if (dump_m68k_toggle)
+	{
+		printf("Dumping m68k RAM please wait...\n");
+		FILE *file = fopen("m68kram_dump.txt", "w");
+		if (file == NULL)
+		{
+			printf("Error opening file!\n");
+			return;
+		}
+
+		fprintf(file, "\nDump of save data around\n");
+		fprintf(file, "Offset   Address   Hex Bytes                                 		 ASCII              Decimal Values\n");
+
+		for (u32 pos = 0; pos < MEM_SIZE; pos += 16)
+		{
+			s32 offset = (s32)pos;
+			fprintf(file, "%+07d: %08X: ", offset, pos);
+
+			for (int i = 0; i < 16; i++)
+			{
+				u8 byte = rdbyte(pos + i);
+				fprintf(file, "%02X ", byte);
+			}
+
+			fprintf(file, " | ");
+
+			for (int i = 0; i < 16; i++)
+			{
+				u8 byte = rdbyte(pos + i);
+				fprintf(file, "%c", (byte >= 0x20 && byte <= 0x7E) ? byte : '.');
+			}
+
+			fprintf(file, " | ");
+
+			for (int i = 0; i < 16; i++)
+			{
+				u8 byte = rdbyte(pos + i);
+				fprintf(file, "%3d ", byte);
+			}
+
+			fprintf(file, "\n");
+		}
+
+		fprintf(file, "\n");
+		fclose(file);
+
+		printf("DONE!\n");
+		dump_m68k_toggle = 0;
+	}
+}
+
+// this called at the start of the jumptable:
+static inline void manage_m68k_ram()
+{
+	edit_cash_values();
+	dump_all_m68k_ram();
+}

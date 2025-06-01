@@ -887,9 +887,13 @@ static void draw_on_top_of_screen()
 		render_nuklear();
 	}
 	if (toggle_touch_controls)
+	{
 		draw_touch_controls();
+	}
 	if (toggle_debug_draw)
+	{
 		draw_debug_blocks();
+	}
 }
 
 // ======================================================================================================
