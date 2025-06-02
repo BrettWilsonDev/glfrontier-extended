@@ -8,6 +8,7 @@ extern int handle_arrow_buttons_pressed(SDL_Event *event);
 extern int handle_thrust_buttons_pressed(SDL_Event *event);
 extern int pause_button_pressed(SDL_Event *event);
 extern int play_button_pressed(SDL_Event *event);
+extern int shoot_button_pressed(SDL_Event *event);
 extern int dropdown_button_pressed(SDL_Event *event);
 extern void update_virtual_joystick(int x, int y);
 extern void handle_virtual_joystick(SDL_Event *event);
@@ -59,6 +60,7 @@ extern touch_button thrust_buttons[4];
 extern touch_button dropdown_buttons[7];
 extern touch_button pause_button;
 extern touch_button play_button;
+extern touch_button shoot_button;
 
 typedef struct {
     int base_x, base_y;     // center of the joystick base

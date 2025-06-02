@@ -23,6 +23,7 @@ static int times_paused_pressed = 0;
 static enum Views view_before_pause = FIRST_PERSON;
 static enum Views person_view = FIRST_PERSON;
 touch_button play_button = {};
+touch_button shoot_button = {};
 
 // static enum Views current_view = FIRST_PERSON;
 static enum Views current_view = FIRST_PERSON;
@@ -41,6 +42,7 @@ void init_touch_buttons()
 
 		pause_button = (touch_button){0, 0, screen_h - 53, 20, 20, {0, 0, 0, 0}, {0, 255, 0, 255}, 0, {.scancode = SDL_SCANCODE_ESCAPE, .sym = SDLK_ESCAPE}};
 		play_button = (touch_button){0, 20, screen_h - 53, 20 + 82, 20, {0, 0, 0, 0}, {255, 100, 200, 255}, 0, {.scancode = SDL_SCANCODE_ESCAPE, .sym = SDLK_ESCAPE}};
+		shoot_button = (touch_button){0, 10, screen_h - 220, 33, 33, {255, 255, 255, 255}, {0, 255, 0, 255}, 0, {.scancode = SDL_SCANCODE_SPACE, .sym = SDLK_SPACE}};
 
 		// ============= fn buttons ===============
 		const int left_size = 33;
@@ -445,6 +447,27 @@ int play_button_pressed(SDL_Event *event)
 	return 0;
 }
 
+int shoot_button_pressed(SDL_Event *event)
+{
+	if (event->button.button == SDL_BUTTON_LEFT)
+	{
+		int x = event->button.x;
+		int y = event->button.y;
+
+		if (x >= shoot_button.x && x <= shoot_button.x + shoot_button.width && y >= shoot_button.y && y <= shoot_button.y + shoot_button.height)
+		{
+			SDL_Keysym sdlkey = shoot_button.sdlkey;
+
+			Keymap_KeyDown(&sdlkey);
+			Keymap_KeyUp(&sdlkey);
+
+			return 1;
+		}
+	}
+	return 0;
+}
+
+
 static int times_views_cycled = 0;
 int dropdown_button_pressed(SDL_Event *event)
 {
@@ -774,6 +797,10 @@ int touch_buttons_pressed(SDL_Event *event)
 		return 1;
 	}
 	if (play_button_pressed(event))
+	{
+		return 1;
+	}
+	if (shoot_button_pressed(event))
 	{
 		return 1;
 	}

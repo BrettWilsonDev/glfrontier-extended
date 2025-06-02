@@ -143,6 +143,7 @@ void Screen_UnInit(void)
 		SDL_DestroyWindow(sdlWindow);
 		sdlWindow = NULL;
 	}
+	nuklear_clean_up();
 }
 
 void Screen_ToggleFullScreen()
@@ -820,7 +821,27 @@ void draw_touch_controls()
 		draw_thrust_icon(sdlRenderer, originX - spacing, originY - (30), size, size, color, 1, 2); // left arrow
 		draw_thrust_icon(sdlRenderer, originX, originY - spacing, size, size, color, 2, 2);		   // up arrow
 		draw_thrust_icon(sdlRenderer, originX + spacing, originY - (30), size, size, color, 3, 2); // right arrow
-																								   // }
+
+		SDL_FRect shootRect = {shoot_button.x, shoot_button.y, shoot_button.width, shoot_button.height};
+
+		// Calculate the center of the rectangle
+		float centerX = shootRect.x + shootRect.w / 2;
+		float centerY = shootRect.y + shootRect.h / 2;
+
+		// Calculate the radius of the circle
+		float radius = shootRect.w / 4;
+
+		// Draw the circle
+		for (float angle = 0; angle < 2 * M_PI; angle += 0.1)
+		{
+			float x = centerX + radius * cos(angle);
+			float y = centerY + radius * sin(angle);
+			SDL_SetRenderDrawColor(sdlRenderer, 255, 0, 0, 255);
+			SDL_RenderDrawPointF(sdlRenderer, x, y);
+		}
+
+		SDL_SetRenderDrawColor(sdlRenderer, shoot_button.color.r, shoot_button.color.g, shoot_button.color.b, 255);
+		SDL_RenderDrawRectF(sdlRenderer, &shootRect);
 	}
 
 	for (int i = 0; i < sizeof(dropdown_buttons) / sizeof(dropdown_buttons[0]); i++)
