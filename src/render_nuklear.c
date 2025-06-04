@@ -5,7 +5,11 @@
 #include "touch_input.h"
 
 #include "render_nuklear.h"
+#ifdef WITH_GL
+#include "nuklear_sdl_gl3_impl.h"
+#else
 #include "nuklear_sdl_impl.h"
+#endif
 
 #ifndef NK_TEXT_WRAP
 #define NK_TEXT_WRAP 0x10
@@ -79,7 +83,7 @@ void display_about(void)
         "Brett Wilson.\n\n"
         "Libraries used:\n"
         "SDL2, physFs,\n"
-        "minivorbis\n"
+        "minivorbis, glutess\n"
         "and nuklear.\n\n"
         "Acknowledgments:\n"
         "Hatari emulator\n"
@@ -304,13 +308,29 @@ void sdl_nk_render()
 {
     nk_render();
 
+#ifndef WITH_GL
     nk_sdl_render(NK_ANTI_ALIASING_ON);
+#endif
+}
+
+void gl3_nk_render()
+{
+    nk_render();
+
+#define MAX_VERTEX_MEMORY 512 * 1024
+#define MAX_ELEMENT_MEMORY 128 * 1024
+
+    nk_sdl_render(NK_ANTI_ALIASING_ON, MAX_VERTEX_MEMORY, MAX_ELEMENT_MEMORY);
 }
 
 void render_nuklear()
 {
+#ifdef WITH_GL
+    gl3_nk_render();
+#else
     if (sdlRenderer != NULL)
     {
         sdl_nk_render();
     }
+#endif
 }

@@ -13,17 +13,20 @@ set(CMAKE_C_STANDARD 99)
 # library toggles
 option(USE_SDL2 "Use SDL2" ON)
 option(USE_PHYSFS "Use PHYSFS" ON)
+option(USE_GLAD "Use GLAD" ON)
 
 # build options
 option(BUILD_SDL_SHARED_LIB "Build SDL as a shared library" OFF)
 option(USE_GL_RENDERER "Use OpenGL renderer instead of software based SDL internal renderer" ON)
+
+# set(USE_GL_RENDERER ON CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE)
 
 ##########################################################################################
 # MSVC runtime linking
 ##########################################################################################
 
 # this is here to ensure the runtime is linked staticly for msvc
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_COMPILER_ID STREQUAL "MSVC")
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
     else()
@@ -159,20 +162,74 @@ if(USE_PHYSFS)
 endif()
 
 ##########################################################################################
+# Glad Setup
+##########################################################################################
+
+if(USE_GLAD)
+    set(dep glad)
+    add_git_dependency(
+        ${dep}
+        https://github.com/Dav1dde/glad.git
+        master
+    )
+
+    FetchContent_GetProperties(${dep})
+    if(NOT ${dep}_POPULATED)
+        FetchContent_Populate(${dep})
+
+        set(GLAD_PROFILE "core" CACHE STRING "OpenGL profile")
+        set(GLAD_API "gl=" CACHE STRING "API type/version pairs, like \"gl=3.2,gles=\", no version means latest")
+        set(GLAD_GENE*RATOR "c" CACHE STRING "Language to generate the binding for")
+
+        find_package(OpenGL REQUIRED)
+
+        add_subdirectory(${${dep}_SOURCE_DIR} ${${dep}_BINARY_DIR})
+    endif()
+
+    # add the dependency here to be linked
+    list(APPEND LIBRARIES ${dep})
+endif()
+
+##########################################################################################
 # nuklear Setup
 ##########################################################################################
 
-add_library(nuklear OBJECT ${CMAKE_CURRENT_LIST_DIR}/vendor/nuklear/nuklear_sdl_impl.c)
-target_include_directories(nuklear PUBLIC ${sdl2_SOURCE_DIR}/include)
+if(USE_GL_RENDERER)
+    add_library(nuklear OBJECT ${CMAKE_CURRENT_LIST_DIR}/vendor/nuklear/nuklear_sdl_gl3_impl.c)
+else()
+    add_library(nuklear OBJECT ${CMAKE_CURRENT_LIST_DIR}/vendor/nuklear/nuklear_sdl_impl.c)
+endif()
+target_include_directories(nuklear PUBLIC
+    ${sdl2_SOURCE_DIR}/include
+    ${glad_BINARY_DIR}/include
+)
 
 list(APPEND LIBRARIES nuklear)
+
+##########################################################################################
+# glutess Setup
+##########################################################################################
+
+add_library(glutess OBJECT
+    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/dict.c
+    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/geom.c
+    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/memalloc.c
+    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/mesh.c
+    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/normal.c
+    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/priorityq.c
+    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/render.c
+    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/sweep.c
+    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/tess.c
+    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/tessellate.c
+    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/tessmono.c
+)
+list(APPEND LIBRARIES glutess)
 
 ##########################################################################################
 # FE2 m68k emulator setup
 ##########################################################################################
 
-find_package(OpenGL REQUIRED)
-list(APPEND LIBRARIES ${OPENGL_LIBRARIES})
+# include the host and m68000 headers
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
 # add music support
@@ -190,26 +247,33 @@ endif()
 
 if(${PLATFORM} STREQUAL "Web")
     # for now until gl support is added  
-    set(USE_GL_RENDERER OFF CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE)
+    set(USE_GL_RENDERER OFF CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE) # web dont support gl for now
 
     list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_part_two.a)
     list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_part_one.a)
 else()
-    # set(USE_GL_RENDERER OFF CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+        add_library(fe2_part_one OBJECT fe2/fe2.s.c)
+        target_compile_options(fe2_part_one PRIVATE -DPART1)
+        list(APPEND LIBRARIES fe2_part_one)
 
-    add_library(fe2_part_one OBJECT fe2/fe2.s.c)
-    target_compile_options(fe2_part_one PRIVATE -DPART1 -O1 -fomit-frame-pointer -fcommon)
-    list(APPEND LIBRARIES fe2_part_one)
+        add_library(fe2_part_two OBJECT fe2/fe2.s.c)
+        target_compile_options(fe2_part_two PRIVATE -DPART2)
+        list(APPEND LIBRARIES fe2_part_two)
+    else()
+        add_library(fe2_part_one OBJECT fe2/fe2.s.c)
+        target_compile_options(fe2_part_one PRIVATE -DPART1 -O1 -fomit-frame-pointer -fcommon)
+        list(APPEND LIBRARIES fe2_part_one)
 
-    # add_library(fe2_part_two OBJECT fe2/fe2.s.c)
-    add_library(fe2_part_two OBJECT fe2/fe2.s.c)
-    target_compile_options(fe2_part_two PRIVATE -DPART2 -O0 -fomit-frame-pointer -fcommon)
-    list(APPEND LIBRARIES fe2_part_two)
-
-    # build using OpenGL if not build using sdl renderer as a fall back
-    if(USE_GL_RENDERER)
-        add_definitions(-DWITH_GL)
+        add_library(fe2_part_two OBJECT fe2/fe2.s.c)
+        target_compile_options(fe2_part_two PRIVATE -DPART2 -O0 -fomit-frame-pointer -fcommon)
+        list(APPEND LIBRARIES fe2_part_two)
     endif()
+
+endif()
+# build using OpenGL if not build using sdl renderer as a fall back
+if(USE_GL_RENDERER)
+    add_definitions(-DWITH_GL)
 endif()
 
 include_directories(${CMAKE_CURRENT_LIST_DIR}/fe2)

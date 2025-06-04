@@ -4,17 +4,26 @@
 
 #include <SDL.h>
 
-#include <GL/gl.h>
-#include <GL/glu.h>
+#include "glad/glad.h"
+
+// #include <GL/gl.h>
+// #include <GL/glu.h>
+#include "gl_utils.h"
+#include "glutess.h"
+
+// #include "glad/glad.h"
 
 #if !defined(_GLUfuncptr)
-typedef void(CALLBACK *_GLUfuncptr)(void);
+// typedef void(CALLBACK *_GLUfuncptr)(void);
 #endif
 /* DKO_END 211121 */
 
 #include "main.h"
 #include "../m68000.h"
 #include "renderer.h"
+
+#include "nuklear_impl.h"
+#include "nuklear_sdl_gl3_impl.h"
 
 unsigned long VideoBase;	/* Base address in ST Ram for screen(read on each VBL) */
 unsigned char *VideoRaster; /* Pointer to Video raster, after VideoBase in PC address space. Use to copy data on HBL */
@@ -40,7 +49,7 @@ int mouse_shown = 0;
 /* fe2 UI blits are done to old screen memory and copied to this texture. */
 static unsigned int screen_tex;
 
-static GLUquadricObj *qobj;
+// static GLUquadricObj *qobj;
 static GLUtesselator *tobj;
 
 float hack;
@@ -59,15 +68,15 @@ int screen_h = 480;
 #define GLERR                                             \
 	{                                                     \
 		printf("GL: %s\n", gluErrorString(glGetError())); \
-	}
+	}													  \
 
-#ifndef CALLBACK
-#ifdef WIN32
-#define CALLBACK __attribute__((__stdcall__))
-#else
+// #ifndef CALLBACK
+// #ifdef WIN32
+// #define CALLBACK __attribute__((__stdcall__))
+// #else
 #define CALLBACK
-#endif
-#endif /* CALLBACK */
+// #endif
+// #endif /* CALLBACK */
 
 void CALLBACK beginCallback(GLenum which);
 void CALLBACK errorCallback(GLenum errorCode);
@@ -90,16 +99,21 @@ static void set_ctrl_viewport()
 
 static SDL_Window *window = NULL;
 static SDL_GLContext gl_context = NULL;
-// static GLuint screen_tex;  // Assuming screen_tex is a GLuint for OpenGL texture
-// static int screen_w = 1024, screen_h = 768;  // Example screen dimensions
-// static int bInFullScreen = 0;  // Example fullscreen flag
 
 static void change_vidmode()
 {
 	// Set OpenGL attributes (like double buffering)
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3); // OpenGL 3.0 or higher (if needed)
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3); // Set OpenGL minor version
+
+#ifdef __EMSCRIPTEN__
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#else
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+#endif
 
 	// Define window flags
 	Uint32 window_flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
@@ -135,8 +149,14 @@ static void change_vidmode()
 		exit(-1);
 	}
 
-	// Set V-Sync (optional)
-	SDL_GL_SetSwapInterval(1); // Enable VSync
+	// vsync
+	// SDL_GL_SetSwapInterval(1); // Enable VSync
+
+	if (!gladLoadGLLoader(SDL_GL_GetProcAddress))
+	{
+		printf("Failed to initialize GLAD\n");
+		exit(1);
+	}
 
 	// OpenGL setup
 	glDisable(GL_CULL_FACE);
@@ -148,7 +168,8 @@ static void change_vidmode()
 	glLoadIdentity();
 
 	// Set up perspective matrix
-	gluPerspective(36.5f, 1.9f, 1.0f, 10000000000.0f);
+	// gluPerspective(36.5f, 1.9f, 1.0f, 10000000000.0f);
+	makePerspectiveMatrix(36.5f, 1.9f, 1.0f, 10000000000.0f);
 
 	// Initialize the texture
 	glEnable(GL_TEXTURE_2D);
@@ -173,60 +194,14 @@ static void change_vidmode()
 	glDisable(GL_DEPTH_TEST);
 }
 
-// static void change_vidmode ()
-// {
-// 	// const SDL_VideoInfo *info = NULL;
-// 	const SDL_VideoInfo *info = NULL;
-// 	int modes;
-
-// 	info = SDL_GetVideoInfo ();
-
-// 	assert (info != NULL);
-
-// 	SDL_GL_SetAttribute (SDL_GL_DOUBLEBUFFER, 1);
-
-// 	modes = SDL_OPENGL | SDL_ANYFORMAT | (bInFullScreen ? SDL_FULLSCREEN : 0);
-
-// 	if ((sdlscrn = SDL_SetVideoMode (screen_w, screen_h,
-// 				info->vfmt->BitsPerPixel, modes)) == 0) {
-// 		fprintf (stderr, "Video mode set failed: %s\n", SDL_GetError ());
-// 		SDL_Quit ();
-// 		exit (-1);
-// 	}
-
-// 	glDisable (GL_CULL_FACE);
-// 	glShadeModel (GL_FLAT);
-// 	glDisable (GL_DEPTH_TEST);
-// 	glClearColor (0, 0, 0, 0);
-
-// 	glMatrixMode (GL_PROJECTION);
-// 	glLoadIdentity ();
-// 	/* aspect ratio of frontier's 3d view is 320/168 = 1.90 */
-// 	gluPerspective (36.5f, 1.9f, 1.0f, 10000000000.0f);
-
-// 	glEnable (GL_TEXTURE_2D);
-// 	glGenTextures (1, &screen_tex);
-// 	glBindTexture (GL_TEXTURE_2D, screen_tex);
-// 	glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, SCR_TEX_W, SCR_TEX_H, 0, GL_RGBA, GL_INT, 0);
-// 	glTexParameterf (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-// 	glTexParameterf (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-// 	glTexParameterf (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-// 	glTexParameterf (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-// 	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-// 	glDisable (GL_TEXTURE_2D);
-
-// 	glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-// 	glMatrixMode (GL_MODELVIEW);
-// 	glLoadIdentity ();
-// 	glDisable (GL_DEPTH_TEST);
-// }
-
 void Screen_Init(void)
 {
+	// Create an OpenGL context
+	// SDL_GLContext context = SDL_GL_CreateContext(window);
 	change_vidmode();
 
-	qobj = gluNewQuadric();
+	// Initialize GLAD
+	// qobj = gluNewQuadric();
 
 	tobj = gluNewTess();
 
@@ -243,6 +218,12 @@ void Screen_Init(void)
 	SDL_EventState(SDL_MOUSEBUTTONDOWN, SDL_ENABLE);
 	SDL_EventState(SDL_MOUSEBUTTONUP, SDL_ENABLE);
 	SDL_ShowCursor(SDL_ENABLE);
+
+	// SDL_GLContext glContext = SDL_GL_CreateContext(window);
+	// SDL_GL_MakeCurrent(window, glContext);
+
+	printf("reached 0\n");
+	nuklear_init_sdl(window);
 }
 
 void Screen_UnInit(void)
@@ -497,6 +478,14 @@ void Screen_ToggleRenderer()
 		use_renderer = 0;
 }
 
+static void draw_on_top_of_screen()
+{
+	if (toggle_m68k_menu)
+	{
+		render_nuklear();
+	}
+}
+
 static void draw_control_panel()
 {
 	int x, y;
@@ -596,6 +585,8 @@ static void draw_control_panel()
 	}
 
 	glDisable(GL_TEXTURE_2D);
+
+	draw_on_top_of_screen();
 
 	pop_ortho();
 }
@@ -720,19 +711,24 @@ static inline void znode_wrcolor(int rgb444col)
 static inline int znode_rdlong(void **data)
 {
 	int val = *((int *)(*data));
-	(*data) += 4;
+	// (*data) += 4;
+	// *data = (void *)((char *)(*data) + 4);
+	*data = (void *)((char *)(*data) + 4);
 	return val;
 }
 static inline short znode_rdword(void **data)
 {
 	short val = *((short *)(*data));
-	(*data) += 2;
+	// (*data) += 2;
+	// *data = (void *)((char *)(*data) + sizeof(short));
+	*data = (void *)((char *)(*data) + 2);
 	return val;
 }
 static inline char znode_rdbyte(void **data)
 {
 	char val = *((char *)(*data));
-	(*data)++;
+	// (*data)++;
+	*data = (void *)((char *)(*data) + sizeof(char));
 	return val;
 }
 
@@ -801,7 +797,8 @@ static inline void znode_rdcolorv(void **data, int *rgb)
 	rgb[0] = (unsigned char)znode_rdbyte(data);
 	rgb[1] = (unsigned char)znode_rdbyte(data);
 	rgb[2] = (unsigned char)znode_rdbyte(data);
-	(*data)++;
+	// (*data)++;
+	*data = (void *)((char *)(*data) + 1);
 }
 
 static inline void znode_rdcolor(void **data, int *r, int *g, int *b)
@@ -809,7 +806,8 @@ static inline void znode_rdcolor(void **data, int *r, int *g, int *b)
 	*r = znode_rdbyte(data);
 	*g = znode_rdbyte(data);
 	*b = znode_rdbyte(data);
-	(*data)++;
+	// (*data)++;
+	*data = (void *)((char *)(*data) + 1);
 }
 
 enum NuPrimitive
@@ -979,8 +977,8 @@ void CALLBACK errorCallback(GLenum errorCode)
 {
 	const GLubyte *estring;
 
-	estring = gluErrorString(errorCode);
-	fprintf(stderr, "Tessellation Error: %s\n", estring);
+	// estring = gluErrorString(errorCode);
+	// fprintf(stderr, "Tessellation Error: %s\n", estring);
 }
 
 void CALLBACK endCallback(void)
@@ -1044,7 +1042,9 @@ static inline void push_tess_vertex(GLdouble v[3])
 	prev[1] = v[1];
 	prev[2] = v[2];
 
-	if (!gluProject(v[0], v[1], v[2], tessModelMatrix, tessProjMatrix, tessViewport,
+	// if (!gluProject(v[0], v[1], v[2], tessModelMatrix, tessProjMatrix, tessViewport,
+	// 				&v[0], &v[1], &v[2]))
+	if (!gl_project(v[0], v[1], v[2], tessModelMatrix, tessProjMatrix, tessViewport,
 					&v[0], &v[1], &v[2]))
 	{
 		// printf (" %f,%f,%f\n", prev[0], prev[1], prev[2]);
@@ -1494,7 +1494,8 @@ void Nu_DrawTwinklyCircle(void **data)
 	glTranslatef(v1[0], v1[1], v1[2]);
 
 	if (size > 0.0f)
-		gluDisk(qobj, 0.0, size, 32, 1);
+		// gluDisk(qobj, 0.0, size, 32, 1);
+		drawDisk(0.0, size, 32, 1);
 
 	size = -0.002 * ((short)dreg2) * v1[2] - 0.016 * v1[2];
 
@@ -1747,7 +1748,8 @@ void Nu_DrawCircle(void **data)
 
 	glPushMatrix();
 	glTranslatef(v1[0], v1[1], v1[2]);
-	gluDisk(qobj, 0.0, size, 32, 1);
+	// gluDisk(qobj, 0.0, size, 32, 1);
+	drawDisk(0.0, size, 32, 1);
 	glPopMatrix();
 }
 
@@ -1778,8 +1780,11 @@ void Nu_DrawCylinder(void **data)
 	int light_col, obj_col, extra_col;
 	float h;
 
-	radOne = rad1;
-	radTwo = rad2;
+	// radOne = rad1;
+	// radTwo = rad2;
+
+	radOne = 0x0420;
+	radTwo = 0x0421;
 
 	znode_rdvertexf(data, light_vec);
 	light_col = znode_rdlong(data);
@@ -1810,16 +1815,22 @@ void Nu_DrawCylinder(void **data)
 #define CYLINDER_POOP 20
 
 	lighting_on(light_vec, light_col, extra_col, znode_rdlong(data));
-	gluDisk(qobj, 0.0, rad1, CYLINDER_POOP, 1);
+	// gluDisk(qobj, 0.0, rad1, CYLINDER_POOP, 1);
+	// drawDisk(0.0, rad1, CYLINDER_POOP, 1);
+	drawDisk(0.0, radOne, CYLINDER_POOP, 1);
 	glTranslatef(0, 0, h);
 
 	lighting_on(light_vec, light_col, extra_col, znode_rdlong(data));
-	gluDisk(qobj, 0.0, rad2, CYLINDER_POOP, 1);
+	// gluDisk(qobj, 0.0, rad2, CYLINDER_POOP, 1);
+	// drawDisk(0.0, rad2, CYLINDER_POOP, 1);
+	drawDisk(0.0, radTwo, CYLINDER_POOP, 1);
 	glTranslatef(0, 0, -h);
 
 	glEnable(GL_CULL_FACE);
 	lighting_on(light_vec, light_col, extra_col, obj_col);
-	gluCylinder(qobj, rad1, rad2, h, CYLINDER_POOP, 1);
+	// gluCylinder(qobj, rad1, rad2, h, CYLINDER_POOP, 1);
+	// drawCylinder(rad1, rad2, h, CYLINDER_POOP, 1);
+	drawCylinder(radOne, radTwo, h, CYLINDER_POOP, 1);
 	glDisable(GL_CULL_FACE);
 
 	glPopMatrix();
@@ -1866,7 +1877,8 @@ void Nu_DrawOval(void **data)
 	// glRotatef (RAD_2_DEG*M_PI*(d/32768.0f), 0.0f, 1.0f, 0.0f);
 	// glRotatef (RAD_2_DEG*M_PI*(e/32768.0f), 1.0f, 0.0f, 0.0f);
 	// glRotatef (-RAD_2_DEG*M_PI*(f/65536.0f), 0.0f, 1.0f, 0.0f);
-	gluDisk(qobj, 0.0, rad, 32, 1);
+	// gluDisk(qobj, 0.0, rad, 32, 1);
+	drawDisk(0.0, rad, 32, 1);
 	glPopMatrix();
 }
 
@@ -1903,7 +1915,8 @@ void Nu_DrawBlob(void **data)
 	{
 		glPushMatrix();
 		glTranslatef(v1[0], v1[1], v1[2]);
-		gluDisk(qobj, 0.0, -0.002 * (rad)*v1[2], edges, 1);
+		// gluDisk(qobj, 0.0, -0.002 * (rad)*v1[2], edges, 1);
+		drawDisk(0.0, -0.002 * (rad)*v1[2], edges, 1);
 		glPopMatrix();
 	}
 }

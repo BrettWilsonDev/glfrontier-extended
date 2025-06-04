@@ -25,7 +25,13 @@
 #include "touch_input.h"
 
 #include "nuklear_impl.h"
+#ifdef WITH_GL
+#include "nuklear_sdl_gl3_impl.h"
+#else
 #include "nuklear_sdl_impl.h"
+#endif
+
+#include "glad/glad.h"
 
 #define FORCE_WORKING_DIR /* Set default directory to cwd */
 
@@ -316,7 +322,7 @@ void sig_handler(int signum)
 	{
 		printf("Segfault! All is lost! Abandon ship!\n");
 		Call_DumpDebug();
-		abort();
+		// abort();
 	}
 }
 

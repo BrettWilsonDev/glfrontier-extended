@@ -36,7 +36,10 @@ typedef struct wav_stream
 	int loop; /* -1 no loop, otherwise specifies loop start pos */
 } wav_stream;
 
-wav_stream sfx_buf[MAX_SAMPLES];
+#define MAX_WAV_SAMPLES 8
+#define MAX_SFX_SAMPLES 33
+
+wav_stream sfx_buf[MAX_SFX_SAMPLES];
 wav_stream wav_channels[MAX_CHANNELS];
 
 BOOL bSoundWorking = TRUE;			  /* Is sound OK */
@@ -48,6 +51,9 @@ static OggVorbis_File music_file;
 static int music_mode;
 static BOOL music_playing = FALSE;
 static int enabled_tracks;
+
+MusicData music_data[MAX_WAV_SAMPLES];
+SfxData sfx_data[MAX_SFX_SAMPLES];
 
 /* Callbacks for libvorbis to read OGG from memory */
 static size_t rw_read(void *ptr, size_t size, size_t nmemb, void *datasource)
@@ -134,6 +140,9 @@ void Call_PlayMusic()
      * 0+ = play specific track once
      * d1:d2 is a mask of enabled tracks
      */
+
+
+
     music_mode = GetReg(0);
 
     enabled_tracks = 0;
@@ -351,6 +360,49 @@ void check_sample_format(SDL_AudioSpec *spec, Uint8 **buf, int *len, const char 
 */
 void Audio_Init(void)
 {
+    music_data[0] = (MusicData){ music_00_ogg, music_00_ogg_len };
+    music_data[1] = (MusicData){ music_01_ogg, music_01_ogg_len };
+    music_data[2] = (MusicData){ music_02_ogg, music_02_ogg_len };
+    music_data[3] = (MusicData){ music_03_ogg, music_03_ogg_len };
+    music_data[4] = (MusicData){ music_04_ogg, music_04_ogg_len };
+    music_data[5] = (MusicData){ music_05_ogg, music_05_ogg_len };
+    music_data[6] = (MusicData){ music_06_ogg, music_06_ogg_len };
+    music_data[7] = (MusicData){ music_07_ogg, music_07_ogg_len };
+
+    sfx_data[0]  = (SfxData){ sfx_00_wav, sfx_00_wav_len };
+    sfx_data[1]  = (SfxData){ sfx_01_wav, sfx_01_wav_len };
+    sfx_data[2]  = (SfxData){ sfx_02_wav, sfx_02_wav_len };
+    sfx_data[3]  = (SfxData){ sfx_03_wav, sfx_03_wav_len };
+    sfx_data[4]  = (SfxData){ sfx_04_wav, sfx_04_wav_len };
+    sfx_data[5]  = (SfxData){ sfx_05_wav, sfx_05_wav_len };
+    sfx_data[6]  = (SfxData){ sfx_06_wav, sfx_06_wav_len };
+    sfx_data[7]  = (SfxData){ sfx_07_wav, sfx_07_wav_len };
+    sfx_data[8]  = (SfxData){ sfx_08_wav, sfx_08_wav_len };
+    sfx_data[9]  = (SfxData){ sfx_09_wav, sfx_09_wav_len };
+    sfx_data[10] = (SfxData){ sfx_10_wav, sfx_10_wav_len };
+    sfx_data[11] = (SfxData){ sfx_11_wav, sfx_11_wav_len };
+    sfx_data[12] = (SfxData){ sfx_12_wav, sfx_12_wav_len };
+    sfx_data[13] = (SfxData){ sfx_13_wav, sfx_13_wav_len };
+    sfx_data[14] = (SfxData){ sfx_14_wav, sfx_14_wav_len };
+    sfx_data[15] = (SfxData){ sfx_15_wav, sfx_15_wav_len };
+    sfx_data[16] = (SfxData){ sfx_16_wav, sfx_16_wav_len };
+    sfx_data[17] = (SfxData){ sfx_17_wav, sfx_17_wav_len };
+    sfx_data[18] = (SfxData){ sfx_18_wav, sfx_18_wav_len };
+    sfx_data[19] = (SfxData){ sfx_19_wav, sfx_19_wav_len };
+    sfx_data[20] = (SfxData){ sfx_20_wav, sfx_20_wav_len };
+    sfx_data[21] = (SfxData){ sfx_21_wav, sfx_21_wav_len };
+    sfx_data[22] = (SfxData){ sfx_22_wav, sfx_22_wav_len };
+    sfx_data[23] = (SfxData){ sfx_23_wav, sfx_23_wav_len };
+    sfx_data[24] = (SfxData){ sfx_24_wav, sfx_24_wav_len };
+    sfx_data[25] = (SfxData){ sfx_25_wav, sfx_25_wav_len };
+    sfx_data[26] = (SfxData){ sfx_26_wav, sfx_26_wav_len };
+    sfx_data[27] = (SfxData){ sfx_27_wav, sfx_27_wav_len };
+    sfx_data[28] = (SfxData){ sfx_28_wav, sfx_28_wav_len };
+    sfx_data[29] = (SfxData){ sfx_29_wav, sfx_29_wav_len };
+    sfx_data[30] = (SfxData){ sfx_30_wav, sfx_30_wav_len };
+    sfx_data[31] = (SfxData){ sfx_31_wav, sfx_31_wav_len };
+    sfx_data[32] = (SfxData){ sfx_32_wav, sfx_32_wav_len };
+
     int i;
     SDL_AudioSpec desiredAudioSpec;
 
@@ -387,7 +439,7 @@ void Audio_Init(void)
 
     SoundBufferSize = desiredAudioSpec.size;
 
-    for (i = 0; i < MAX_SAMPLES; i++)
+    for (i = 0; i < MAX_SFX_SAMPLES; i++)
     {
         SDL_RWops *rw = SDL_RWFromConstMem(sfx_data[i].data, sfx_data[i].len);
         if (rw == NULL)
@@ -429,7 +481,7 @@ void Audio_UnInit(void)
     int i;
     Audio_EnableAudio(FALSE);
 
-    for (i = 0; i < MAX_SAMPLES; i++)
+    for (i = 0; i < MAX_SFX_SAMPLES; i++)
     {
         if (sfx_buf[i].buf)
         {

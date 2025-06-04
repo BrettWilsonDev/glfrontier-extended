@@ -52162,50 +52162,9 @@ unsigned char sfx_32_wav[] = {
 };
 const unsigned int sfx_32_wav_len = 20778;
  
-
-
 typedef struct {
     unsigned char *data;
     unsigned int len;
 } SfxData;
-
-#define MAX_SAMPLES 33
-static const SfxData sfx_data[MAX_SAMPLES] = {
-    { sfx_00_wav, sfx_00_wav_len },
-    { sfx_01_wav, sfx_01_wav_len },
-    { sfx_02_wav, sfx_02_wav_len },
-    { sfx_03_wav, sfx_03_wav_len },
-    { sfx_04_wav, sfx_04_wav_len },
-    { sfx_05_wav, sfx_05_wav_len },
-    { sfx_06_wav, sfx_06_wav_len },
-    { sfx_07_wav, sfx_07_wav_len },
-    { sfx_08_wav, sfx_08_wav_len },
-    { sfx_09_wav, sfx_09_wav_len },
-    { sfx_10_wav, sfx_10_wav_len },
-    { sfx_11_wav, sfx_11_wav_len },
-    { sfx_12_wav, sfx_12_wav_len },
-    { sfx_13_wav, sfx_13_wav_len },
-    { sfx_14_wav, sfx_14_wav_len },
-    { sfx_15_wav, sfx_15_wav_len },
-    { sfx_16_wav, sfx_16_wav_len },
-    { sfx_17_wav, sfx_17_wav_len },
-    { sfx_18_wav, sfx_18_wav_len },
-    { sfx_19_wav, sfx_19_wav_len },
-    { sfx_20_wav, sfx_20_wav_len },
-    { sfx_21_wav, sfx_21_wav_len },
-    { sfx_22_wav, sfx_22_wav_len },
-    { sfx_23_wav, sfx_23_wav_len },
-    { sfx_24_wav, sfx_24_wav_len },
-    { sfx_25_wav, sfx_25_wav_len },
-    { sfx_26_wav, sfx_26_wav_len },
-    { sfx_27_wav, sfx_27_wav_len },
-    { sfx_28_wav, sfx_28_wav_len },
-    { sfx_29_wav, sfx_29_wav_len },
-    { sfx_30_wav, sfx_30_wav_len },
-    { sfx_31_wav, sfx_31_wav_len },
-    { sfx_32_wav, sfx_32_wav_len },
-
-
-};
 
 #endif

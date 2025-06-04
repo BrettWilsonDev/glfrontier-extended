@@ -8,8 +8,11 @@
  *
  * ===============================================================
  */
+#ifndef WITH_GL
+
 #ifndef NK_SDL_RENDERER_H_
 #define NK_SDL_RENDERER_H_
+
 
 #ifndef NK_SDL_RENDERER_SDL_H
 #define NK_SDL_RENDERER_SDL_H <SDL.h>
@@ -403,3 +406,5 @@ void nk_sdl_shutdown(void)
 }
 
 #endif /* NK_SDL_RENDERER_IMPLEMENTATION */
+
+#endif /* WITH_GL */

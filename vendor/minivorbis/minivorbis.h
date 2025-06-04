@@ -7030,6 +7030,9 @@ STIN void mdct_butterflies(mdct_lookup *init,
 
 void mdct_clear(mdct_lookup *l){
   if(l){
+    if (l == NULL || (uintptr_t)l == 0xDDDDDDDD || (uintptr_t)l == 0xCCCCCCCC) {
+        return; // man I just love msvc
+    }
     if(l->trig)_ogg_free(l->trig);
     if(l->bitrev)_ogg_free(l->bitrev);
     memset(l,0,sizeof(*l));

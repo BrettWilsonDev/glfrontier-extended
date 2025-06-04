@@ -1,6 +1,7 @@
-# IMPORTANT INFORMATION
+# GLFrontier Extended
 
-* **Compiler Requirement**: This project will build with gcc or clang.
+## IMPORTANT INFORMATION
+
 * **Build System**: This project uses CMake.
 * **Dependencies**: This project has no dependencies sdl2 physFs and minivorbis are all setup using fetchcontent.
 
@@ -19,11 +20,11 @@ Some special keys to note:
 * Dedicated software renderer that makes use of SDL internal renderer
 * Wasm through Emscripten that allows the game to be played int he browser at full speed
 * Touch screen support with keyboard keys having dedicated touch buttons
-
+* gcc, clang, msvc compilers supported
 
 ## Dependencies
 Required: 
-* GCC Compiler or Clang Compiler
+* GCC or Clang or MSVC compilers
 * CMake
 
 ## How to Build
@@ -36,9 +37,11 @@ Required:
 
 ## Acknowledgments
 * Tom Morton original author of GLFrontier Wayback machine archive [Tom Morton - GLFrontier](https://web.archive.org/web/20171014043201/http://tom.noflag.org.uk/glfrontier.html)
-* This project builds upon the work of: [Pcercuei's Copy of GLFrontier](https://github.com/pcercuei/glfrontier)
+* This project is forked from: [Pcercuei's Copy of GLFrontier](https://github.com/pcercuei/glfrontier)
 * Incorporates additional code from: [GLFrontier-win32](https://github.com/Kochise/GLFrontier-win32.git)
 * sdl2 for windowing and input: [SDL2](https://github.com/libsdl-org/SDL/tree/SDL2)
 * physFs for file system (loading and saving save game): [physFs](https://github.com/icculus/physfs)
 * minivorbis for audio: [MiniVorbis](https://github.com/edubart/minivorbis)
 * nuklear for gui: [Nuklear](https://github.com/Immediate-Mode-UI/Nuklear)
+* glad for loading opengl functions: [glad](https://github.com/Dav1dde/glad)
+* Rip of the GLU tesselator into a standalone static library: [glutess](https://github.com/mlabbe/glutess)
