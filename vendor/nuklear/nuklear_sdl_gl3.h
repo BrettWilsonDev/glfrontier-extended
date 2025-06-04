@@ -10,6 +10,8 @@
  *
  * ===============================================================
  */
+#ifdef WITH_GL
+
 #ifndef NK_SDL_GL3_H_
 #define NK_SDL_GL3_H_
 
@@ -476,4 +478,6 @@ void nk_sdl_shutdown(void)
     memset(&sdl, 0, sizeof(sdl));
 }
 
-#endif
+#endif /* NK_SDL_GL3_H_ */
+
+#endif /* WITH_GL */

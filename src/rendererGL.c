@@ -22,6 +22,7 @@
 #include "../m68000.h"
 #include "renderer.h"
 
+#include "render_nuklear.h"
 #include "nuklear_impl.h"
 #include "nuklear_sdl_gl3_impl.h"
 
@@ -222,7 +223,6 @@ void Screen_Init(void)
 	// SDL_GLContext glContext = SDL_GL_CreateContext(window);
 	// SDL_GL_MakeCurrent(window, glContext);
 
-	printf("reached 0\n");
 	nuklear_init_sdl(window);
 }
 

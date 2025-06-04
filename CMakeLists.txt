@@ -183,7 +183,7 @@ if(USE_GLAD)
 
         find_package(OpenGL REQUIRED)
 
-        add_subdirectory(${${dep}_SOURCE_DIR} ${${dep}_BINARY_DIR})
+        add_subdirectory(${glad_SOURCE_DIR} ${glad_BINARY_DIR})
     endif()
 
     # add the dependency here to be linked

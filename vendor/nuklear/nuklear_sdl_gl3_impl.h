@@ -1,3 +1,5 @@
+#ifdef WITH_GL
+
 #ifndef NUKLEAR_SDL_GL3_IMPL_H_
 #define NUKLEAR_SDL_GL3_IMPL_H_
 
@@ -13,3 +15,5 @@ void nuklear_init_sdl(SDL_Window *win);
 void nuklear_clean_up(void);
 
 #endif /* NUKLEAR_SDL_GL3_IMPL_H_ */
+
+#endif /* WITH_GL */

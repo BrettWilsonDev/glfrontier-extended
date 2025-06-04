@@ -1,3 +1,5 @@
+#ifdef WITH_GL
+
 #include <stdint.h>
 
 #define NK_INCLUDE_FIXED_TYPES
@@ -29,3 +31,5 @@ void nuklear_clean_up(void)
 {
     nk_sdl_shutdown();
 }
+
+#endif /* WITH_GL */
