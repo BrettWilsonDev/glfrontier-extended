@@ -320,7 +320,9 @@ void gl3_nk_render()
 #define MAX_VERTEX_MEMORY 512 * 1024
 #define MAX_ELEMENT_MEMORY 128 * 1024
 
+#ifdef WITH_GL
     nk_sdl_render(NK_ANTI_ALIASING_ON, MAX_VERTEX_MEMORY, MAX_ELEMENT_MEMORY);
+#endif
 }
 
 void render_nuklear()

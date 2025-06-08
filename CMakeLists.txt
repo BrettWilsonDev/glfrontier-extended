@@ -19,7 +19,6 @@ option(USE_GLAD "Use GLAD" ON)
 option(BUILD_SDL_SHARED_LIB "Build SDL as a shared library" OFF)
 option(USE_GL_RENDERER "Use OpenGL renderer instead of software based SDL internal renderer" ON)
 
-# set(USE_GL_RENDERER ON CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE)
 
 ##########################################################################################
 # MSVC runtime linking
@@ -41,6 +40,10 @@ endif()
 if(NOT DEFINED PLATFORM)
     set(PLATFORM "default")
 endif()
+
+# if(${PLATFORM} STREQUAL "Web")
+#     set(USE_GL_RENDERER OFF CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE) # web dose not support gl for now
+# endif()
 
 ##########################################################################################
 # Add dependencies with FetchContent
@@ -165,29 +168,35 @@ endif()
 # Glad Setup
 ##########################################################################################
 
-if(USE_GLAD)
-    set(dep glad)
-    add_git_dependency(
-        ${dep}
-        https://github.com/Dav1dde/glad.git
-        master
-    )
+if(${PLATFORM} STREQUAL "Web")
+    set(USE_GL_RENDERER OFF CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE) # web dose not support gl for now
+endif()
 
-    FetchContent_GetProperties(${dep})
-    if(NOT ${dep}_POPULATED)
-        FetchContent_Populate(${dep})
+if(USE_GL_RENDERER)
+    if(USE_GLAD)
+        set(dep glad)
+        add_git_dependency(
+            ${dep}
+            https://github.com/Dav1dde/glad.git
+            master
+        )
 
-        set(GLAD_PROFILE "core" CACHE STRING "OpenGL profile")
-        set(GLAD_API "gl=" CACHE STRING "API type/version pairs, like \"gl=3.2,gles=\", no version means latest")
-        set(GLAD_GENE*RATOR "c" CACHE STRING "Language to generate the binding for")
+        FetchContent_GetProperties(${dep})
+        if(NOT ${dep}_POPULATED)
+            FetchContent_Populate(${dep})
 
-        find_package(OpenGL REQUIRED)
+            set(GLAD_PROFILE "core" CACHE STRING "OpenGL profile")
+            set(GLAD_API "gl=" CACHE STRING "API type/version pairs, like \"gl=3.2,gles=\", no version means latest")
+            set(GLAD_GENE*RATOR "c" CACHE STRING "Language to generate the binding for")
 
-        add_subdirectory(${glad_SOURCE_DIR} ${glad_BINARY_DIR})
+            find_package(OpenGL REQUIRED)
+
+            add_subdirectory(${glad_SOURCE_DIR} ${glad_BINARY_DIR})
+        endif()
+
+        # add the dependency here to be linked
+        list(APPEND LIBRARIES ${dep})
     endif()
-
-    # add the dependency here to be linked
-    list(APPEND LIBRARIES ${dep})
 endif()
 
 ##########################################################################################
@@ -246,9 +255,6 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 endif()
 
 if(${PLATFORM} STREQUAL "Web")
-    # for now until gl support is added  
-    set(USE_GL_RENDERER OFF CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE) # web dont support gl for now
-
     list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_part_two.a)
     list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_part_one.a)
 else()

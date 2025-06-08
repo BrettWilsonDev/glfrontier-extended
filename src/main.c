@@ -31,7 +31,7 @@
 #include "nuklear_sdl_impl.h"
 #endif
 
-#include "glad/glad.h"
+// #include "glad/glad.h"
 
 #define FORCE_WORKING_DIR /* Set default directory to cwd */
 
