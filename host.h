@@ -201,51 +201,11 @@ static inline void edit_cash_values()
 {
 	if (inject_cash_value)
 	{
-		const u8 expected_bytes[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xA9, 0x25};
-		u32 start = 0;
-		u32 len = sizeof(expected_bytes);
-		for (u32 pos = start; pos < MEM_SIZE - len; pos++)
-		{
-			int match = 1;
-			for (u32 i = 0; i < len; i++)
-			{
-				if ((u8)rdbyte(pos + i) != expected_bytes[i])
-				{
-					match = 0;
-					break;
-				}
-			}
-			if (match)
-			{
-				int tPos = 0;
-				for (u32 offset = len;; offset++)
-				{
-					u8 byte = (u8)rdbyte(pos + offset);
-					if (byte == 0x40)
-					{
-						break;
-					}
-					if (tPos == 6)
-					{
-						wrbyte(pos + offset, cash_value[0]);
-					}
-					if (tPos == 7)
-					{
-						wrbyte(pos + offset, cash_value[1]);
-					}
-					if (tPos == 8)
-					{
-						wrbyte(pos + offset, cash_value[2]);
-					}
-					if (tPos == 9)
-					{
-						wrbyte(pos + offset, cash_value[3]);
-					}
-					tPos++;
-				}
-				break;
-			}
-		}
+		u32 address = 1072;
+		wrbyte(address + 12, cash_value[0]);
+		wrbyte(address + 13, cash_value[1]);
+		wrbyte(address + 14, cash_value[2]);
+		wrbyte(address + 15, cash_value[3]);
 		inject_cash_value = 0;
 	}
 }

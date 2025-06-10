@@ -24,10 +24,8 @@ extern union Reg Regs[16];
 ### Notes on editing the cash value
 
 * the cash value and other associated values show up twice in the entirety of the RAM — the first seems to be in general and is the real-time reflection of the value. the second is when save data is being loaded or saved.  
-  what's interesting is that the value is always denoted by the hex pattern `FF FF FF FF A9 25 C5` — in decimal that's `255 255 255 255 169`.  
-  the cash value is always between that and the `@` symbol aka `0x40`.
-* 4 hex spots control the total sum off the cash value. starting after `FF FF FF FF A9 25 C5` the first offset at spot 6 if set to 1 (hex `01`) the value starting from cash value 0.0 is
-1677721.6 spot 7 is 6553.6 spot 8 is 25.6 and spot 9 is 0.1
+* 4 hex spots control the total sum off the cash value. starting after `FF FF FF FF` at memory address `1072` with the first offset of the cash being at spot 12 if set to 1 (hex `01`) the value starting from cash value 0.0 is
+1677721.6 spot 13 is 6553.6 spot 14 is 25.6 and spot 15 is 0.1
 
 ---
 
@@ -37,12 +35,12 @@ extern union Reg Regs[16];
 
 * `Regs[10]._s32 = Regs[12]._s32;` — appears **after** `__NL73164_EncryptSaveData:` → strong candidate for the start of raw save data **before encryption**.
 * same line appears again **after** `__NL73180_DecryptSaveData:` → strong candidate for the start of raw save data **after encryption**.
-* "There are 4 hexadecimal spots that control the total cash value. Starting from the offset after `FF FF FF FF A9 25 C5`, the values at the following  spots have the following effects with the cash value being reset to 0.0 each time:"
+* "There are 4 hexadecimal spots that control the total cash value. Starting from the memory offset `1072`, the values at the following spots have the following effects with the cash value being reset to 0.0 each time:"
 
-* **(offset 6)**: If set to `01`, the cash value increases to 1677721.6.
-* **(offset 7)**: If set to `01`, the cash value increases by 6553.6.
-* **(offset 8)**: If set to `01`, the cash value increases by 25.6.
-* **(offset 9)**: If set to `01`, the cash value increases by 0.1.
+* **(offset 1072 + 12)**: If set to `01`, the cash value increases to 1677721.6.
+* **(offset 1072 + 13)**: If set to `01`, the cash value increases by 6553.6.
+* **(offset 1072 + 14)**: If set to `01`, the cash value increases by 25.6.
+* **(offset 1072 + 15)**: If set to `01`, the cash value increases by 0.1.
 * So understanding this a million would be 0x00 0x98 0x96 0x80 or in decimal 0 98 96 80
 
 #### Conclusion
