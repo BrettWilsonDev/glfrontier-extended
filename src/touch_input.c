@@ -1,3 +1,9 @@
+/*
+	touch_input.c
+
+	used for touch input and virtual joystick
+*/
+
 #include "touch_input.h"
 
 #include "main.h"
@@ -217,7 +223,7 @@ void init_touch_buttons()
 				dropdown_buttons[i].y = originY + (size * i) - 1;
 				dropdown_buttons[i].sdlkey = (SDL_Keysym){.scancode = SDL_SCANCODE_C, .sym = SDLK_c};
 				break;
-			case 6: // m68k menu 
+			case 6: // m68k menu
 				dropdown_buttons[i].x = originX;
 				dropdown_buttons[i].y = originY + (size * i) - 1;
 				break;
@@ -467,6 +473,25 @@ int shoot_button_pressed(SDL_Event *event)
 	return 0;
 }
 
+// used for multi touch while vjoy is down
+int shoot_button_pressed_finger(SDL_Event *event)
+{
+	if (event->type != SDL_FINGERDOWN)
+		return 0;
+
+	int x = (int)(event->tfinger.x * screen_w);
+	int y = (int)(event->tfinger.y * screen_h);
+
+	if (x >= shoot_button.x && x <= shoot_button.x + shoot_button.width &&
+		y >= shoot_button.y && y <= shoot_button.y + shoot_button.height)
+	{
+		SDL_Keysym sdlkey = shoot_button.sdlkey;
+		Keymap_KeyDown(&sdlkey);
+		Keymap_KeyUp(&sdlkey);
+		return 1;
+	}
+	return 0;
+}
 
 static int times_views_cycled = 0;
 int dropdown_button_pressed(SDL_Event *event)
@@ -754,7 +779,6 @@ void handle_virtual_joystick(SDL_Event *event)
 	case SDL_MOUSEMOTION:
 		if (vjoy_mouse_down)
 		{
-			// toggle_arrow_keys_touch = 0;
 			update_virtual_joystick(event->motion.x, event->motion.y);
 		}
 		break;
@@ -770,7 +794,7 @@ void handle_virtual_joystick(SDL_Event *event)
 		if (event->button.button == SDL_BUTTON_LEFT)
 		{
 			vjoy_mouse_down = 0;
-			vjoy.active = 0; // reset joystick when mouse is released
+			vjoy.active = 0;
 
 			vjoy.knob_x = vjoy.base_x;
 			vjoy.knob_y = vjoy.base_y;
@@ -781,6 +805,14 @@ void handle_virtual_joystick(SDL_Event *event)
 			input.cur_mousebut_state &= ~0x1;
 			input.cur_mousebut_state |= 0x2;
 		}
+		break;
+
+	case SDL_FINGERDOWN:
+		// Independent multitouch shoot button logic
+		shoot_button_pressed_finger(event);
+		break;
+
+	default:
 		break;
 	}
 }

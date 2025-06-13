@@ -903,10 +903,6 @@ void draw_debug_blocks()
 
 static void draw_on_top_of_screen()
 {
-	if (toggle_m68k_menu)
-	{
-		render_nuklear();
-	}
 	if (toggle_touch_controls)
 	{
 		draw_touch_controls();
@@ -914,6 +910,10 @@ static void draw_on_top_of_screen()
 	if (toggle_debug_draw)
 	{
 		draw_debug_blocks();
+	}
+	if (toggle_m68k_menu)
+	{
+		render_nuklear();
 	}
 }
 
