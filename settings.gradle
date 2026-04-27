@@ -1,0 +1,2 @@
+rootProject.name = "GLFrontier"
+include ':app'

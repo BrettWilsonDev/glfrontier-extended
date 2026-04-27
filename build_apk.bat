@@ -1,0 +1,3 @@
+call gradlew assembleDebug
+
+pause
