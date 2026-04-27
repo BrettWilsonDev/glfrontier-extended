@@ -303,7 +303,7 @@ if(${PLATFORM} STREQUAL "Web")
     # add_library(fe2_part_one STATIC fe2/fe2.s.c)
     # target_compile_options(fe2_part_one PRIVATE -DPART1 -O0)
     # target_link_options(fe2_part_one PRIVATE -s ASYNCIFY)
-    
+
     # add_library(fe2_part_two STATIC fe2/fe2.s.c)
     # target_compile_options(fe2_part_two PRIVATE -DPART2 -O0)
     # target_link_options(fe2_part_two PRIVATE -s ASYNCIFY)
@@ -400,9 +400,10 @@ if(NOT ${PLATFORM} STREQUAL "Web" AND NOT ANDROID)
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_COMPILER_ID STREQUAL "MSVC")
         target_link_libraries(${LIBRARIES})
 
-        if(OFF)
-            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
-        endif()
+        set_target_properties(${PROJECT_NAME} PROPERTIES
+            LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
+            LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE"
+        )
 
         # dont forget to set  "cmake.configureSettings": { "CMAKE_BUILD_TYPE": "${buildType}" } in settings.json for vs code
         if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -431,6 +432,9 @@ if(CMAKE_BUILD_TYPE MATCHES "Debug")
 else()
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG")
     if(WIN32)
+        if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mwindows")
+        endif()
         if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
             set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mwindows")
         endif()
@@ -442,11 +446,11 @@ endif()
 if(ASYNCIFY)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s ASYNCIFY")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s TOTAL_STACK=8MB")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s ASYNCIFY_STACK_SIZE=131072")  # 128KB is usually enough
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s ASYNCIFY_STACK_SIZE=131072") # 128KB is usually enough
 
     # Memory settings tuned for mobile + desktop balance
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s INITIAL_MEMORY=128MB")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s MAXIMUM_MEMORY=512MB")   # Safe realistic max for most mobiles
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s MAXIMUM_MEMORY=512MB") # Safe realistic max for most mobiles
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s ALLOW_MEMORY_GROWTH=1")
 endif()
 
