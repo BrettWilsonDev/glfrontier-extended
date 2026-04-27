@@ -607,7 +607,7 @@ static void init_shaders(void)
  *   batch_vertex3f(x, y, z, r, g, b);
  *   batch_end_flat();        -- draws with prog_flat, current MVP
  * ========================================================================= */
-#define BATCH_MAX_VERTS 65536
+#define BATCH_MAX_VERTS 65536 * 2
 
 typedef struct
 {
