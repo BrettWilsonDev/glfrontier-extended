@@ -463,7 +463,7 @@ void display_cheats(void)
         static int selected_index = 0;
 
         /* Build a filtered list of non-empty items */
-        int visible_indices[item_count];
+        int visible_indices[NK_LEN(items)];
         int visible_count = 0;
         for (int i = 0; i < item_count; ++i)
         {
@@ -471,7 +471,7 @@ void display_cheats(void)
                 visible_indices[visible_count++] = i;
         }
 
-        const char *visible_items[visible_count];
+        const char *visible_items[NK_LEN(items)];
         for (int i = 0; i < visible_count; ++i)
             visible_items[i] = items[visible_indices[i]];
 
