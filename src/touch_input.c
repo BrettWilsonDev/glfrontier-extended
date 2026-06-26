@@ -66,13 +66,16 @@ void init_touch_buttons()
 		int shootSz  = gh * 33 / 480;
 		if (shootSz < 18) shootSz = 18;
 
+		int btnW = gw * 33 / 640;
+		if (btnW < 18) btnW = 18;
+		int btnH = gh * 33 / 480;
+		if (btnH < 18) btnH = 18;
+
 		pause_button = (touch_button){0, gx,          gy + gh - btnSize,        btnSize,      btnSize, {0, 0, 0, 0}, {0, 255, 0, 255},     0, {.scancode = SDL_SCANCODE_ESCAPE, .sym = SDLK_ESCAPE}};
 		play_button  = (touch_button){0, gx + btnSize, gy + gh - btnSize,        btnSize * 3,  btnSize, {0, 0, 0, 0}, {255, 100, 200, 255}, 0, {.scancode = SDL_SCANCODE_ESCAPE, .sym = SDLK_ESCAPE}};
 		shoot_button = (touch_button){0, gx + 10,      gy + gh - shootSz * 7,   shootSz,      shootSz, {255, 255, 255, 255}, {0, 255, 0, 255}, 0, {.scancode = SDL_SCANCODE_SPACE, .sym = SDLK_SPACE}};
 
 		// ============= fn buttons ===============
-		const int left_size  = btnSize;
-		const int right_size = btnSize;
 
 		SDL_Color colors[] = {
 			{0, 255, 0, 255},
@@ -102,10 +105,10 @@ void init_touch_buttons()
 			{
 				// left side — anchored to left edge of game rect
 				fn_buttons[i].index       = i;
-				fn_buttons[i].x          = gx + left_size * i;
-				fn_buttons[i].y          = gy + gh - left_size;
-				fn_buttons[i].width      = left_size;
-				fn_buttons[i].height     = left_size;
+				fn_buttons[i].x          = gx + btnW * i;
+				fn_buttons[i].y          = gy + gh - btnH;
+				fn_buttons[i].width      = btnW;
+				fn_buttons[i].height     = btnH;
 				fn_buttons[i].debug_color = colors[i];
 				fn_buttons[i].sdlkey     = keys[i];
 				fn_buttons[i].times_pressed = 0;
@@ -114,14 +117,51 @@ void init_touch_buttons()
 			{
 				// right side — anchored to right edge of game rect
 				fn_buttons[i].index       = i;
-				fn_buttons[i].x          = gx + gw - right_size * (i - 3);
-				fn_buttons[i].y          = gy + gh - right_size;
-				fn_buttons[i].width      = right_size;
-				fn_buttons[i].height     = right_size;
+				fn_buttons[i].x          = (gx + gw - btnW * (i - 3));
+				fn_buttons[i].y          = gy + gh - btnH;
+				fn_buttons[i].width      = btnW;
+				fn_buttons[i].height     = btnH;
 				fn_buttons[i].debug_color = colors[i - 4];
 				fn_buttons[i].sdlkey     = keys[i];
 				fn_buttons[i].times_pressed = 0;
 			}
+		}
+
+		// ============= shift+fn buttons (time acceleration) ===============
+		SDL_Keysym shift_keys[] = {
+			{.scancode = SDL_SCANCODE_ESCAPE, .sym = SDLK_ESCAPE},
+			{.scancode = SDL_SCANCODE_F1, .sym = SDLK_F1, .mod = KMOD_LSHIFT},
+			{.scancode = SDL_SCANCODE_F2, .sym = SDLK_F2, .mod = KMOD_LSHIFT},
+			{.scancode = SDL_SCANCODE_F3, .sym = SDLK_F3, .mod = KMOD_LSHIFT},
+			{.scancode = SDL_SCANCODE_F4, .sym = SDLK_F4, .mod = KMOD_LSHIFT},
+			{.scancode = SDL_SCANCODE_F5, .sym = SDLK_F5, .mod = KMOD_LSHIFT},
+		};
+
+		// for (int i = 0; i < 5; i++)
+		// {
+		// 	fn_buttons[9 + i].index  = 9 + i;
+		// 	fn_buttons[9 + i].x     = gx + btnW * i;
+		// 	fn_buttons[9 + i].y     = gy + gh - btnH * 2;  /* row above fn buttons */
+		// 	fn_buttons[9 + i].width  = btnW;
+		// 	fn_buttons[9 + i].height = btnH;
+		// 	fn_buttons[9 + i].sdlkey = shift_keys[i];
+		// 	fn_buttons[9 + i].times_pressed = 0;
+		// }
+
+		// relative widths of each stardreamer button (must add up to ~100)
+		float shift_widths[] = { 0.09, 0.1, 0.09, 0.09, 0.09, 0.09 };
+		float x_cursor = gx;
+		for (int i = 0; i < 6; i++)
+		{
+			int w = (int)(gw * shift_widths[i] * 0.35f); // 0.35 = approx fraction of total width these buttons occupy
+			fn_buttons[9 + i].index  = 9 + i;
+			fn_buttons[9 + i].x     = (int)x_cursor;
+			fn_buttons[9 + i].y     = gy + gh - (btnH) * 2;
+			fn_buttons[9 + i].width  = w;
+			fn_buttons[9 + i].height = btnH;
+			fn_buttons[9 + i].sdlkey = shift_keys[i];
+			fn_buttons[9 + i].times_pressed = 0;
+			x_cursor += w;
 		}
 
 		SDL_Keysym arrow_keys[] = {
@@ -256,8 +296,19 @@ void init_touch_buttons()
 /* Call this whenever screen_w / screen_h change so buttons reposition. */
 void reinit_touch_buttons(void)
 {
-	init_touch_buttons_called = 0;
-	init_touch_buttons();
+    init_touch_buttons_called = 0;
+
+    /* Recentre vjoy base to left-centre of the new game area */
+    int gx = Screen_GetGameOffsetX();
+    int gy = Screen_GetGameOffsetY();
+    int gw = Screen_GetGameWidth();
+    int gh = Screen_GetGameHeight();
+    vjoy.base_x = gx + gw / 4;
+    vjoy.base_y = gy + gh * 2 / 3;
+    vjoy.knob_x = vjoy.base_x;
+    vjoy.knob_y = vjoy.base_y;
+
+    init_touch_buttons();
 }
 
 int fn_button_pressed(SDL_Event *event)
@@ -274,7 +325,8 @@ int fn_button_pressed(SDL_Event *event)
 			int x = event->button.x;
 			int y = event->button.y;
 
-			if (x >= fn_buttons[i].x && x <= fn_buttons[i].x + fn_buttons[i].width && y >= screen_h - fn_buttons[i].height && y <= screen_h)
+			// if (x >= fn_buttons[i].x && x <= fn_buttons[i].x + fn_buttons[i].width && y >= screen_h - fn_buttons[i].height && y <= screen_h)
+			if (x >= fn_buttons[i].x && x <= fn_buttons[i].x + fn_buttons[i].width && y >= fn_buttons[i].y && y <= fn_buttons[i].y + fn_buttons[i].height)
 			{
 				SDL_Keysym sdlkey = fn_buttons[i].sdlkey;
 
@@ -288,8 +340,22 @@ int fn_button_pressed(SDL_Event *event)
 				// 	return 1;
 				// }
 
-				Keymap_KeyDown(&sdlkey);
-				Keymap_KeyUp(&sdlkey);
+				// Keymap_KeyDown(&sdlkey);
+				// Keymap_KeyUp(&sdlkey);
+
+				if (i >= 9)
+				{
+					SDL_Keysym shift = {.scancode = SDL_SCANCODE_LSHIFT, .sym = SDLK_LSHIFT};
+					Keymap_KeyDown(&shift);
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+					Keymap_KeyUp(&shift);
+				}
+				else
+				{
+					Keymap_KeyDown(&sdlkey);
+					Keymap_KeyUp(&sdlkey);
+				}
 
 				if (i == 0)
 				{

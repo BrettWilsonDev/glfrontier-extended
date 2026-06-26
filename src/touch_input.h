@@ -55,7 +55,7 @@ typedef struct
     // int times_pressed_max; // max number of times the button can be pressed
 } touch_button;
 
-extern touch_button fn_buttons[9];
+extern touch_button fn_buttons[15];
 extern touch_button arrow_buttons[4];
 extern touch_button thrust_buttons[4];
 extern touch_button dropdown_buttons[7];
