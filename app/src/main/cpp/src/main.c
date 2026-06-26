@@ -139,17 +139,18 @@ void Main_UnPauseEmulation(void)
 	}
 }
 
+
 int hit_region_clicked(SDL_Event *event, int x1, int y1, int x2, int y2)
 {
-	int lb_ox = Screen_GetGameOffsetX();
-	int lb_oy = Screen_GetGameOffsetY();
-	int lb_h = Screen_GetGameHeight();
-	int lb_w = lb_h * 320 / 240;
+    int lb_ox = Screen_GetGameOffsetX();
+    int lb_oy = Screen_GetGameOffsetY();
+    int lb_h  = Screen_GetGameHeight();
+    int lb_w  = Screen_GetGameWidth();
 
-	int gx = 320 * (event->button.x - lb_ox) / lb_w;
-	int gy = 240 * (event->button.y - lb_oy) / lb_h;
+    int gx = 320 * (event->button.x - lb_ox) / lb_w;
+    int gy = 240 * (event->button.y - lb_oy) / lb_h;
 
-	return gx >= x1 && gx <= x2 && gy >= y1 && gy <= y2;
+    return gx >= x1 && gx <= x2 && gy >= y1 && gy <= y2;
 }
 
 /* Hacky fix for the system map view left click glitch in the original game.

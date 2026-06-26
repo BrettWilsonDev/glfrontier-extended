@@ -137,17 +137,6 @@ void init_touch_buttons()
 			{.scancode = SDL_SCANCODE_F5, .sym = SDLK_F5, .mod = KMOD_LSHIFT},
 		};
 
-		// for (int i = 0; i < 5; i++)
-		// {
-		// 	fn_buttons[9 + i].index  = 9 + i;
-		// 	fn_buttons[9 + i].x     = gx + btnW * i;
-		// 	fn_buttons[9 + i].y     = gy + gh - btnH * 2;  /* row above fn buttons */
-		// 	fn_buttons[9 + i].width  = btnW;
-		// 	fn_buttons[9 + i].height = btnH;
-		// 	fn_buttons[9 + i].sdlkey = shift_keys[i];
-		// 	fn_buttons[9 + i].times_pressed = 0;
-		// }
-
 		// relative widths of each stardreamer button (must add up to ~100)
 		float shift_widths[] = { 0.09, 0.1, 0.09, 0.09, 0.09, 0.09 };
 		float x_cursor = gx;
@@ -324,8 +313,7 @@ int fn_button_pressed(SDL_Event *event)
 
 			int x = event->button.x;
 			int y = event->button.y;
-
-			// if (x >= fn_buttons[i].x && x <= fn_buttons[i].x + fn_buttons[i].width && y >= screen_h - fn_buttons[i].height && y <= screen_h)
+			
 			if (x >= fn_buttons[i].x && x <= fn_buttons[i].x + fn_buttons[i].width && y >= fn_buttons[i].y && y <= fn_buttons[i].y + fn_buttons[i].height)
 			{
 				SDL_Keysym sdlkey = fn_buttons[i].sdlkey;
@@ -339,9 +327,6 @@ int fn_button_pressed(SDL_Event *event)
 				// {
 				// 	return 1;
 				// }
-
-				// Keymap_KeyDown(&sdlkey);
-				// Keymap_KeyUp(&sdlkey);
 
 				if (i >= 9)
 				{
