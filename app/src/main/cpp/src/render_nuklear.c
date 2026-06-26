@@ -325,8 +325,10 @@ void display_debug_settings(void)
             toggle_touch_controls = !toggle_touch_controls;
     }
 
+#if !defined(__EMSCRIPTEN__) && !defined(ANDROID)   
     if (nk_button_label(nk_ctx, "Dump M68k Memory"))
         dump_m68k_toggle = 1;
+#endif
 
     nk_text_multiline(nk_ctx, "Emulator Speed\nDefault is 20ms.");
 
@@ -357,10 +359,20 @@ void display_settings(void)
     if (nk_button_label(nk_ctx, "Fullscreen Toggle"))
         Screen_ToggleFullScreen();
 
+    static bool isScreenStretched = true;
+
+    
     if (sdlRenderer == NULL)
     {
         if (nk_button_label(nk_ctx, "Cycle Renderer"))
-            Screen_ToggleRenderer();
+        Screen_ToggleRenderer();
+    }
+    
+    nk_label(nk_ctx, "Aspect Ratio:", NK_TEXT_LEFT);
+    if (nk_button_label(nk_ctx, isScreenStretched ? "Set Stretch: ON" : "Set Stretch: OFF"))
+    {
+        isScreenStretched = !isScreenStretched;
+        Screen_SetLetterboxMode(isScreenStretched);
     }
 }
 
@@ -463,7 +475,7 @@ void display_cheats(void)
         static int selected_index = 0;
 
         /* Build a filtered list of non-empty items */
-        int visible_indices[item_count];
+        int visible_indices[NK_LEN(items)];
         int visible_count = 0;
         for (int i = 0; i < item_count; ++i)
         {
@@ -471,7 +483,7 @@ void display_cheats(void)
                 visible_indices[visible_count++] = i;
         }
 
-        const char *visible_items[visible_count];
+        const char *visible_items[NK_LEN(items)];
         for (int i = 0; i < visible_count; ++i)
             visible_items[i] = items[visible_indices[i]];
 
