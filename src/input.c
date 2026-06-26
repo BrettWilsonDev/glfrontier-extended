@@ -41,7 +41,6 @@ void Call_GetMouseInput()
 	int lb_ox = Screen_GetGameOffsetX();
 	int lb_oy = Screen_GetGameOffsetY();  /* SDL top-left origin */
 	int lb_h  = Screen_GetGameHeight();
-	// int lb_w  = lb_h * 320 / 240;        /* letterbox width = height * 4/3 */
 	int lb_w  = Screen_GetGameWidth();
 
 	int rel_x = input.abs_x - lb_ox;

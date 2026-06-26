@@ -91,6 +91,7 @@ void call_update_letterbox(void);
 int  Screen_GetGameOffsetX(void);
 int  Screen_GetGameOffsetY(void);
 int  Screen_GetGameHeight(void);
+int  Screen_GetGameWidth(void);
 
 static const unsigned char font_bmp[] = {
 	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x2, 0x80, 0x80, 0x80, 0x80, 0x80, 0x0,
