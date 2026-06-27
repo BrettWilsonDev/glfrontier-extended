@@ -71,9 +71,12 @@ void init_touch_buttons()
 		int btnH = gh * 33 / 480;
 		if (btnH < 18) btnH = 18;
 
+		int marginX = gw * 10 / 640;
+		if (marginX < 4) marginX = 4;
+
 		pause_button = (touch_button){0, gx,          gy + gh - btnSize,        btnSize,      btnSize, {0, 0, 0, 0}, {0, 255, 0, 255},     0, {.scancode = SDL_SCANCODE_ESCAPE, .sym = SDLK_ESCAPE}};
 		play_button  = (touch_button){0, gx + btnSize, gy + gh - btnSize,        btnSize * 3,  btnSize, {0, 0, 0, 0}, {255, 100, 200, 255}, 0, {.scancode = SDL_SCANCODE_ESCAPE, .sym = SDLK_ESCAPE}};
-		shoot_button = (touch_button){0, gx + 10,      gy + gh - shootSz * 7,   shootSz,      shootSz, {255, 255, 255, 255}, {0, 255, 0, 255}, 0, {.scancode = SDL_SCANCODE_SPACE, .sym = SDLK_SPACE}};
+		shoot_button = (touch_button){0, ((gx + marginX) ),      gy + gh - shootSz * 7,   shootSz,      shootSz, {255, 255, 255, 255}, {0, 255, 0, 255}, 0, {.scancode = SDL_SCANCODE_SPACE, .sym = SDLK_SPACE}};
 
 		// ============= fn buttons ===============
 
@@ -197,7 +200,8 @@ void init_touch_buttons()
 		originY  = gy + gh * 2 / 3;
 		int tOff = tSpacing * 3 / 4;   /* vertical offset for side buttons */
 
-		originX -= 30;
+		originX -= gw / 20;
+		// originX += gw;
 
 		for (int i = 0; i < sizeof(thrust_buttons) / sizeof(thrust_buttons[0]); i++)
 		{
