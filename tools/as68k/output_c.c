@@ -170,10 +170,17 @@ void c_begin (const char *src_filename, const char *bin_filename)
 	cln ("load_binfile (\"%s\");", bin_filename);
 	cout ("}\n");
 	
+	/* Start680x0_at: run from any 68k address. While the host is calling in
+	   (fe2vm_depth, see host.h) every jump asks fe2vm_check whether to
+	   return: at the return address it pushed, or when the call ran too
+	   long; and a bad jump target returns instead of aborting. */
 	cout ("void Start680x0 ()\n{\n");
-	cout ("\ts32 i, jdest = 0x1c;\n");
-	cout ("\tRegs[15]._u32 = MEM_SIZE;\n\n");
-	cout ("jumptable:\n\tmanage_m68k_ram();\n\tswitch (jdest) {\n");
+	cout ("\tRegs[15]._u32 = MEM_SIZE;\n");
+	cout ("\tStart680x0_at (0x1c);\n}\n");
+	cout ("void Start680x0_at (s32 entry)\n{\n");
+	cout ("\ts32 i, jdest = entry;\n\n");
+	cout ("jumptable:\n\tif (fe2vm_depth && fe2vm_check (jdest)) return;\n");
+	cout ("\tmanage_m68k_ram();\n\tswitch (jdest) {\n");
 }
 
 void c_end (const char *src_filename)
@@ -252,6 +259,10 @@ void c_end (const char *src_filename)
 	/* and then computed jump table */
 	cln ("goto end_;");
 	cout ("\t\tdefault: \n");
+	cln ("if (fe2vm_depth) {");
+	cln ("	fe2vm_bad_jump (jdest);");
+	cln ("	return;");
+	cln ("}");
 	cln ("#ifdef M68K_DEBUG");
 	cln ("	printf (\"Bad jump target at line %%d: $%%x (rdest=$%%x).\\n\", line_no, jdest, rdest);");
 	cln ("#else");

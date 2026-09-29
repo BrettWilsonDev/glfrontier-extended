@@ -1,0 +1,62 @@
+/*
+ * gl_planet.h - planet rendering.
+ *
+ * The game's planet routine builds the planet as a 2D shape list for its
+ * software renderer and then (label fuck_planet in fe2_modded.s.c) calls hostcall
+ * 0x78 -> Nu_PutPlanet. Everything the GL renderer knows about a planet is
+ * captured there into PlanetDesc, including a copy of that 2D list.
+ *
+ * 2D planet list format (words, 3D view pixel coordinates):
+ *   156                                    start
+ *   166 x0 y0 x1 y1 code                   straight edge
+ *   182 x0 y0 x1 y1 x2 y2 x3 y3 code       bezier edge
+ *   198 row code                           region code change at a row
+ *   208 id x16                             colour table (dynamic colour ids),
+ *                                          ends the shape and fills it
+ * The software renderer fills it scanline by scanline, XOR-ing edge codes to
+ * pick a colour from the table.
+ *
+ * To add planet features (surface detail, shading, rings, ...):
+ *   1. Add fields to PlanetDesc.
+ *   2. Fill them in Nu_PutPlanet() from emulated RAM. Only copy data there:
+ *      RAM will have changed by draw time.
+ *   3. Draw them in draw_planet(), with gd_* geometry, fill2d_* shapes or
+ *      another gd_custom() GPU pass.
+ */
+#ifndef GL_PLANET_H
+#define GL_PLANET_H
+
+#include <stdbool.h>
+#include <stdint.h>
+#include "gl_scene.h"
+
+/* Words. Detailed planets (Earth's hand-made continents) have long lists;
+ * a scene record holds at most 64K bytes, which bounds this. */
+#define PLANET_LIST_MAX 30000
+
+typedef struct
+{
+	Vec3i pos;         /* centre, view space */
+	float radius;      /* view-space units */
+	float light[3];    /* light direction, view space */
+	int32_t obj_col;   /* rgb444 surface colour (D6) */
+	int32_t light_col; /* rgb444 light colour  (D1) */
+	float rot[9];      /* planet orientation, column-major 3x3 */
+
+	/* Raw emulator context at capture time, for decoding extra features */
+	struct
+	{
+		int32_t d[8];
+		uint32_t a[8];
+	} ctx;
+
+	/* The game's own 2D shape of the planet (see format above) */
+	uint16_t list_len; /* words, 0 if not captured */
+	bool list_ok;      /* well formed: draw from it instead of the sphere */
+	int16_t list[];    /* list_len words; colour tables already hold rgb444 */
+} PlanetDesc;
+
+void gl_planet_init(void);
+void gl_planet_shutdown(void);
+
+#endif /* GL_PLANET_H */

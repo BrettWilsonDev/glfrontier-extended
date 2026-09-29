@@ -1,0 +1,11 @@
+# Python 3.8+ is needed for the tools below. The build scripts use only the
+# standard library; the packages listed here are only for redrawing the icon.
+#
+#   tools/androidBuild/build_android.py   Android APK build (tools/build-android.bat)
+#   tools/build_fe2.py                    regenerate the game code from fe2/*.s
+#   tools/flatten_fe2.py                  split the game code (web build, FE2_FLAT)
+#   tools/icon/make_icon.py               redraw the icon (exe, APK, web favicon)
+
+# tools/icon/make_icon.py
+Pillow>=9.1
+numpy>=1.20

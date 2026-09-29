@@ -1,3 +1,8 @@
 build
 build-em
+build-android
 .vscode
+.cache
+build-original
+__pycache__
+temp

@@ -1,7 +1,12 @@
-### You must provide your own `fe2.s` file
+### Assembling the game
 
-- Check the links to related projects in the main [README](../../README.md) — some of them may include `fe2.s` in their repositories.
+The game's 68k source is `fe2/fe2_modded.s` (Tom Morton's disassembly of
+Frontier: Elite 2, annotated and modded).
 
-- After building this repo using [build_as68k](./build_as68k), and once the `as68k` executable is available, run the `build-fe2-bin-c` script.  
-  This script requires `fe2.s` to be in the **same directory** as both the script and the `as68k` executable.  
-  It will generate two output files: `fe2.s.c` and `fe2.s.bin`.
+- Easiest: from the repository root run `python tools/build_fe2.py`. It
+  finds `as68k` (build it with [build_as68k](./build_as68k.bat) first) and
+  updates `fe2/fe2_modded.s.c`, `fe2/fe2_bin.h` and `fe2/fe2_labels.h`.
+
+- By hand: after building as68k, copy `fe2_modded.s` next to the `as68k`
+  executable and run the generated `build-fe2-bin-c` script there. It
+  writes `fe2_modded.s.c`, `fe2_modded.s.bin` and `fe2_bin.h`.

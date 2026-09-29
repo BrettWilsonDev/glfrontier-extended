@@ -1,0 +1,528 @@
+/*
+ * gl_screen.c - OpenGL 3.3 / GLES 3.0 front end of the renderer.
+ *
+ * Owns the window and GL context, the letterboxed layout, the 320x200
+ * emulated screen (2D UI, text, control panel) and the per-frame sequence in
+ * Nu_DrawScreen. The 3D view itself is recorded by gl_scene / gl_prims /
+ * gl_planet and drawn through the gl_draw batch.
+ *
+ * Frame layout (bottom to top):
+ *   1. 3D view        scene_draw() into GD_VP_VIEW3D
+ *   2. screen blit    emulated 320x200 framebuffer, colour 255 transparent
+ *   3. overlays       touch controls / settings cog
+ *   4. emulator menu  Dear ImGui, drawn after the batch is flushed
+ */
+#include <SDL.h>
+
+#include "gl_api.h"
+#include "gl_draw.h"
+#include "gl_overlay.h"
+#include "gl_planet.h"
+#include "gl_prims.h"
+#include "gl_scene.h"
+
+#include "main.h"
+#include "m68000.h"
+#include "renderer.h"
+#include "screen_text.h"
+#include "touch_input.h"
+#include "ui/ui.h"
+
+/* =========================================================================
+ * Public globals (declared extern in renderer.h)
+ * ========================================================================= */
+unsigned long VideoBase;
+unsigned char *VideoRaster;
+
+int len_main_palette;
+unsigned short MainPalette[256];
+unsigned short CtrlPalette[16];
+int fe2_bgcol;
+
+unsigned int MainRGBPalette[256];
+unsigned int CtrlRGBPalette[16];
+
+unsigned long logscreen, logscreen2, physcreen, physcreen2;
+
+BOOL bGrabMouse = FALSE;
+BOOL bInFullScreen = FALSE;
+
+enum RENDERERS use_renderer = R_GL;
+int mouse_shown = 0;
+
+int screen_w = 640;
+int screen_h = 480;
+
+/* =========================================================================
+ * Layout / letterboxing
+ * ========================================================================= */
+#define GAME_W      320
+#define GAME_H      240
+#define SCR_W       320 /* emulated framebuffer */
+#define SCR_H       200
+#define SCR_TEX_W   512
+#define SCR_TEX_H   256
+#define PANEL_LINES 38 /* control panel height in the 240 line game area */
+
+static int lb_x, lb_y, lb_w = 640, lb_h = 480;
+static bool lb_mode = true; /* keep 4:3 aspect */
+
+static void update_letterbox(void)
+{
+	if (!lb_mode)
+	{
+		lb_x = lb_y = 0;
+		lb_w = screen_w;
+		lb_h = screen_h;
+		return;
+	}
+	float aspect = (float)GAME_W / (float)GAME_H;
+	lb_w = screen_w;
+	lb_h = (int)(screen_w / aspect + 0.5f);
+	if (lb_h > screen_h)
+	{
+		lb_h = screen_h;
+		lb_w = (int)(screen_h * aspect + 0.5f);
+	}
+	lb_x = (screen_w - lb_w) / 2;
+	lb_y = (screen_h - lb_h) / 2;
+}
+
+bool Screen_GetLetterboxMode(void)
+{
+	return lb_mode;
+}
+
+void Screen_SetLetterboxMode(bool mode)
+{
+	lb_mode = mode;
+	update_letterbox();
+	reinit_touch_buttons();
+}
+
+void call_update_letterbox(void)
+{
+	update_letterbox();
+	reinit_touch_buttons();
+}
+
+int Screen_GetGameOffsetX(void)
+{
+	return lb_x;
+}
+int Screen_GetGameOffsetY(void)
+{
+	return screen_h - lb_y - lb_h;
+}
+int Screen_GetGameHeight(void)
+{
+	return lb_h;
+}
+int Screen_GetGameWidth(void)
+{
+	return lb_w;
+}
+
+static void layout_rects(int r[GD_VP_COUNT][4])
+{
+	int panel_h = lb_h * PANEL_LINES / GAME_H;
+	int win[4] = {0, 0, screen_w, screen_h};
+	int game[4] = {lb_x, lb_y, lb_w, lb_h};
+	int view[4] = {lb_x, lb_y + panel_h, lb_w, lb_h - panel_h};
+	memcpy(r[GD_VP_WINDOW], win, sizeof(win));
+	memcpy(r[GD_VP_GAME], game, sizeof(game));
+	memcpy(r[GD_VP_VIEW3D], view, sizeof(view));
+}
+
+/* =========================================================================
+ * Window / context
+ * ========================================================================= */
+static SDL_Window *window;
+static SDL_GLContext gl_context;
+
+static void create_window(void)
+{
+#if GL_IS_GLES
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#else
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+#endif
+	/* painter's algorithm only: no depth or stencil buffer needed */
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
+	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
+	Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
+	if (bInFullScreen)
+		flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+#ifdef ANDROID
+	SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+	flags |= SDL_WINDOW_FULLSCREEN;
+#endif
+
+	window = SDL_CreateWindow(PROG_NAME, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screen_w, screen_h,
+							  flags);
+	if (!window)
+	{
+		log_printf("SDL_CreateWindow failed: %s\n", SDL_GetError());
+		SDL_Quit();
+		exit(-1);
+	}
+
+	gl_context = SDL_GL_CreateContext(window);
+	if (!gl_context)
+	{
+		log_printf("SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+		SDL_DestroyWindow(window);
+		SDL_Quit();
+		exit(-1);
+	}
+
+#if !GL_IS_GLES
+	if (!gladLoadGLLoader(SDL_GL_GetProcAddress))
+	{
+		log_printf("Failed to initialize GLAD\n");
+		exit(1);
+	}
+#endif
+
+	log_printf("GL: %s / %s / %s\n", (const char *)glGetString(GL_VENDOR),
+			   (const char *)glGetString(GL_RENDERER), (const char *)glGetString(GL_VERSION));
+}
+
+/* The GL drawable can be bigger than the window SDL reports sizes and mouse
+ * positions in (SDL_WINDOW_ALLOW_HIGHDPI: browsers with devicePixelRatio
+ * != 1, Retina). Everything here lays out and draws in drawable pixels;
+ * mouse events are scaled to match. */
+static int win_w = 640, win_h = 480;
+
+void Screen_SyncSize(void)
+{
+	int dw, dh, ww, wh;
+	if (!window)
+		return;
+	SDL_GL_GetDrawableSize(window, &dw, &dh);
+	SDL_GetWindowSize(window, &ww, &wh);
+	if (dw <= 0 || dh <= 0 || ww <= 0 || wh <= 0)
+		return;
+	win_w = ww;
+	win_h = wh;
+	if (dw != screen_w || dh != screen_h)
+	{
+		screen_w = dw;
+		screen_h = dh;
+		call_update_letterbox();
+	}
+}
+
+void Screen_MouseToPixels(SDL_Event *event)
+{
+	if (win_w == screen_w && win_h == screen_h)
+		return;
+	float sx = (float)screen_w / win_w, sy = (float)screen_h / win_h;
+	switch (event->type)
+	{
+	case SDL_MOUSEMOTION:
+		event->motion.x = (Sint32)(event->motion.x * sx);
+		event->motion.y = (Sint32)(event->motion.y * sy);
+		event->motion.xrel = (Sint32)(event->motion.xrel * sx);
+		event->motion.yrel = (Sint32)(event->motion.yrel * sy);
+		break;
+	case SDL_MOUSEBUTTONDOWN:
+	case SDL_MOUSEBUTTONUP:
+		event->button.x = (Sint32)(event->button.x * sx);
+		event->button.y = (Sint32)(event->button.y * sy);
+		break;
+	}
+}
+
+/* =========================================================================
+ * Emulated 320x200 screen -> texture
+ * ========================================================================= */
+static GLuint blit_prog, blit_vao, blit_vbo, screen_tex;
+static GLint u_blit_tex, u_blit_discard;
+static uint32_t framebuf[SCR_W * SCR_H];
+
+static const char *VS_BLIT = "in vec2 aPos;\n"
+							 "in vec2 aUV;\n"
+							 "out vec2 vUV;\n"
+							 "void main(){ gl_Position = vec4(aPos, 0.0, 1.0); vUV = aUV; }\n";
+
+/* int not bool: uniform bool is broken on many Android drivers */
+static const char *FS_BLIT = "in vec2 vUV;\n"
+							 "uniform sampler2D uTex;\n"
+							 "uniform int uDiscard;\n"
+							 "out vec4 fragColor;\n"
+							 "void main(){\n"
+							 "  vec4 c = texture(uTex, vUV);\n"
+							 "  if (uDiscard != 0 && c.a < 0.5) discard;\n"
+							 "  fragColor = c;\n"
+							 "}\n";
+
+static void init_screen_blit(void)
+{
+	static const char *const attribs[] = {"aPos", "aUV"};
+	blit_prog = gd_build_program(VS_BLIT, FS_BLIT, attribs, 2);
+	u_blit_tex = glGetUniformLocation(blit_prog, "uTex");
+	u_blit_discard = glGetUniformLocation(blit_prog, "uDiscard");
+
+	const float u1 = (float)SCR_W / SCR_TEX_W, v1 = (float)SCR_H / SCR_TEX_H;
+	/* texture row 0 is the top of the screen */
+	const float quad[4][4] = {
+		{-1, -1, 0, v1},
+		{1, -1, u1, v1},
+		{-1, 1, 0, 0},
+		{1, 1, u1, 0},
+	};
+	glGenVertexArrays(1, &blit_vao);
+	glGenBuffers(1, &blit_vbo);
+	glBindVertexArray(blit_vao);
+	glBindBuffer(GL_ARRAY_BUFFER, blit_vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
+	glBindVertexArray(0);
+
+	glGenTextures(1, &screen_tex);
+	glBindTexture(GL_TEXTURE_2D, screen_tex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, SCR_TEX_W, SCR_TEX_H, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+static void upload_screen(void)
+{
+	const uint8_t *src = VideoRaster;
+	for (int y = 0; y < SCR_H; y++)
+	{
+		const unsigned int *pal = (y < 168) ? MainRGBPalette : CtrlRGBPalette;
+		const uint8_t *row = src + y * SCR_W;
+		uint32_t *out = framebuf + y * SCR_W;
+		for (int x = 0; x < SCR_W; x++)
+			out[x] = (row[x] == 255) ? 0 : pal[row[x]];
+	}
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, screen_tex);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SCR_W, SCR_H, GL_RGBA, GL_UNSIGNED_BYTE, framebuf);
+}
+
+typedef struct
+{
+	int transparent;
+} BlitPass;
+
+static void screen_blit_pass(const void *data)
+{
+	const BlitPass *b = data;
+	upload_screen();
+	glUseProgram(blit_prog);
+	glUniform1i(u_blit_tex, 0);
+	glUniform1i(u_blit_discard, b->transparent);
+	glBindVertexArray(blit_vao);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+/* =========================================================================
+ * Screen_* API
+ * ========================================================================= */
+void Screen_Init(void)
+{
+	create_window();
+	Screen_SyncSize();
+	update_letterbox();
+
+	gd_init();
+	gl_prims_init();
+	gl_planet_init();
+	init_screen_blit();
+
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+	glClearColor(0, 0, 0, 1);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	SDL_EventState(SDL_MOUSEMOTION, SDL_ENABLE);
+	SDL_EventState(SDL_MOUSEBUTTONDOWN, SDL_ENABLE);
+	SDL_EventState(SDL_MOUSEBUTTONUP, SDL_ENABLE);
+	SDL_ShowCursor(SDL_ENABLE);
+	ui_init_gl(window, gl_context);
+}
+
+void Screen_UnInit(void)
+{
+	ui_shutdown();
+	glDeleteTextures(1, &screen_tex);
+	glDeleteBuffers(1, &blit_vbo);
+	glDeleteVertexArrays(1, &blit_vao);
+	glDeleteProgram(blit_prog);
+	gl_planet_shutdown();
+	gl_prims_shutdown();
+	gd_shutdown();
+}
+
+void Screen_ToggleFullScreen(void)
+{
+	bInFullScreen = !bInFullScreen;
+	if (SDL_SetWindowFullscreen(window, bInFullScreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) != 0)
+		log_printf("SDL_SetWindowFullscreen failed: %s\n", SDL_GetError());
+}
+
+void Screen_ToggleRenderer(void)
+{
+	use_renderer++;
+	if (use_renderer >= R_MAX)
+		use_renderer = 0;
+}
+
+void Screen_GetRendererInfo(char *buf, int len)
+{
+	snprintf(buf, (size_t)len, "OpenGL %s\n%s\n%s", (const char *)glGetString(GL_VERSION),
+			 (const char *)glGetString(GL_VENDOR), (const char *)glGetString(GL_RENDERER));
+}
+
+/* =========================================================================
+ * Host calls that are not primitives
+ * ========================================================================= */
+void Nu_3DViewInit(void)
+{
+	screen_text_clear_queue();
+	scene_reset();
+}
+
+void Nu_InsertZNode(void)
+{
+	if (!scene_insert_node((uint32_t)GetReg(REG_D4)))
+		return;
+	/* A1 is where the game is about to build the matching node of its own
+	 * software depth tree. Some of those (atmosphere haze) have no GL hook,
+	 * so remember the address and look at it when this node is drawn. */
+	uint32_t *soft = scene_record(PRIM_SOFT_NODE, sizeof *soft);
+	if (soft)
+		*soft = (uint32_t)GetReg(REG_A1);
+}
+
+void Nu_IsGLRenderer(void)
+{
+	SetReg(REG_D0, use_renderer != R_OLD ? 1 : 0);
+}
+
+/* Marks a rectangle of the emulated screen transparent so the 3D view
+ * shows through it. */
+void Nu_GLClearArea(void)
+{
+	if (use_renderer == R_OLD)
+		return;
+	int x1 = GetReg(REG_D0) & 0xffff, y1 = GetReg(REG_D1) & 0xffff;
+	int x2 = GetReg(REG_D2) & 0xffff, y2 = GetReg(REG_D3) & 0xffff;
+	if (x2 > SCR_W)
+		x2 = SCR_W;
+	if (y2 > SCR_H)
+		y2 = SCR_H;
+	if (x1 >= x2 || y1 >= y2)
+		return;
+
+	unsigned char *s1 = (unsigned char *)PHYSCREEN + SCREENBYTES_LINE * y1;
+	unsigned char *s2 = (unsigned char *)LOGSCREEN + SCREENBYTES_LINE * y1;
+	for (int y = y1; y < y2; y++, s1 += SCREENBYTES_LINE, s2 += SCREENBYTES_LINE)
+	{
+		memset(s1 + x1, 255, (size_t)(x2 - x1));
+		memset(s2 + x1, 255, (size_t)(x2 - x1));
+	}
+}
+
+/* =========================================================================
+ * Frame
+ * ========================================================================= */
+static void build_rgb_palette(unsigned int *rgb, const unsigned short *st, int len)
+{
+	for (int i = 0; i < len; i++)
+	{
+		int c = st[i];
+		int b = (c & 0xf) << 4, g = (c & 0xf0), r = (c & 0xf00) >> 4;
+		rgb[i] = 0xff000000u | (unsigned)(b << 16) | (unsigned)(g << 8) | (unsigned)r;
+	}
+}
+
+static void clear_rect(const int r[4], unsigned int rgba)
+{
+	glEnable(GL_SCISSOR_TEST);
+	glScissor(r[0], r[1], r[2], r[3]);
+	glClearColor((rgba & 0xff) / 255.0f, ((rgba >> 8) & 0xff) / 255.0f, ((rgba >> 16) & 0xff) / 255.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+	glDisable(GL_SCISSOR_TEST);
+}
+
+static void update_cursor(void)
+{
+	static int shown = -1;
+	int want = mouse_shown ? 1 : 0;
+	mouse_shown = 0;
+	if (want != shown)
+	{
+		SDL_ShowCursor(want ? SDL_ENABLE : SDL_DISABLE);
+		shown = want;
+	}
+}
+
+void Nu_DrawScreen(void)
+{
+	int rects[GD_VP_COUNT][4];
+
+	build_rgb_palette(MainRGBPalette, MainPalette, len_main_palette);
+	build_rgb_palette(CtrlRGBPalette, CtrlPalette, 16);
+
+	Screen_SyncSize(); /* a DPI change (browser zoom, other monitor) may come without a resize event */
+	layout_rects(rects);
+	glViewport(0, 0, screen_w, screen_h);
+	glClearColor(0, 0, 0, 1);
+	glClear(GL_COLOR_BUFFER_BIT);
+	if (use_renderer != R_GLWIRE)
+		clear_rect(rects[GD_VP_GAME], MainRGBPalette[fe2_bgcol]);
+
+	gd_begin_frame(rects);
+
+	/* 1. 3D view */
+	mat4 persp = mat4_perspective(36.5f, 1.9f, 1.0f, 10000000000.0f);
+	gd_set_viewport(GD_VP_VIEW3D);
+	gd_set_projection(&persp);
+	gd_set_wireframe(use_renderer == R_GLWIRE);
+	scene_draw();
+	gl_prims_finish();
+	gd_set_wireframe(false);
+
+	/* 2. emulated screen, with the text the game queued during the frame */
+	screen_text_draw_queue();
+
+	mat4 ortho = mat4_ortho(0, 320, 0, 200, -1, 1);
+	gd_set_viewport(GD_VP_GAME);
+	gd_set_projection(&ortho);
+	gd_identity();
+	gd_color3ub(0, 0, 0);
+	gd_rect2(0, 0, 320, 32); /* black strip behind the control panel */
+
+	BlitPass *blit = gd_custom(screen_blit_pass, sizeof *blit);
+	if (blit)
+		blit->transparent = (use_renderer != R_OLD);
+
+	/* 3. overlays */
+	gl_overlay_draw();
+
+	gd_flush();
+
+	/* 4. emulator menu */
+	ui_render();
+
+	update_cursor();
+	SDL_GL_SwapWindow(window);
+}

@@ -51,6 +51,18 @@ extern u32 exception_handlers[32];
 void SetReg(int reg, int val);
 int GetReg(int reg);
 
+/* Host calls into the game code (src/galaxy/fe2vm.h): Start680x0_at runs
+ * from any address; while fe2vm_depth is set every jump asks fe2vm_check
+ * whether to return (at FE2VM_STOP, the return address the host pushed, or
+ * when the call runs too long), and a bad jump target calls fe2vm_bad_jump
+ * and returns instead of aborting. */
+#define FE2VM_STOP 0x7ffffff1 /* odd, so never a 68k code address */
+extern int fe2vm_depth;
+int fe2vm_check(s32 jdest);
+void fe2vm_bad_jump(s32 jdest);
+void Start680x0_at(s32 entry);
+extern const int hcalls_count; /* entries in hcalls[] */
+
 /* Macros for getting/setting flags */
 #define GetZFlag() (!nZ)
 #define GetNFlag() (N)

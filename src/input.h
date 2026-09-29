@@ -1,36 +1,32 @@
+/*
+ * input.h - keyboard and mouse state handed to the emulated game.
+ */
+#ifndef INPUT_H
+#define INPUT_H
 
-#ifndef _INPUT_H
-#define _INPUT_H
-
-#include <SDL_keyboard.h>
+#include "main.h"
 
 #define SIZE_KEYBUF 16
-#define SIZE_MOUSEBUF 16
 
-typedef struct CINPUT
+typedef struct
 {
-	// unsigned char key_states[SDLK_LAST];
-	unsigned char key_states[SDL_NUM_SCANCODES];
-	unsigned char key_buf[SIZE_KEYBUF];
-	unsigned char mousebut_buf[SIZE_MOUSEBUF];
+	unsigned char key_buf[SIZE_KEYBUF]; /* ST scancodes waiting for the game */
 	int buf_head, buf_tail;
-	int mbuf_head, mbuf_tail;
-	int cur_mousebut_state;
+	int cur_mousebut_state; /* bit 0 right, bit 1 left (ST order) */
 
-	/* change in mouse pos since last polled, absolute position */
-	int motion_x, motion_y;
-	int abs_x, abs_y;
-	/* mouse button state when last polled, and now */
-	int mouse_buttons_prev, mouse_buttons_now;
+	int motion_x, motion_y; /* mouse movement since the game last polled */
+	int abs_x, abs_y;       /* pointer position, window pixels */
 } CINPUT;
 
 extern CINPUT input;
 
-void Input_PressSTKey(unsigned char ScanCode, BOOL bPress);
-void Call_GetMouseInput();
-void Call_GetKeyboardEvent();
-void Input_Update();
-void Input_MousePress(int button);
-void Input_MouseRelease(int button);
+/* Queue an ST key press / release */
+void Input_PressSTKey(unsigned char scancode, BOOL press);
+void Input_MousePress(int sdl_button);
+void Input_MouseRelease(int sdl_button);
 
-#endif /* _INPUT_H */
+/* Host calls: the game polls the mouse and keyboard */
+void Call_GetMouseInput(void);
+void Call_GetKeyboardEvent(void);
+
+#endif /* INPUT_H */

@@ -1,21 +1,43 @@
 # GLFrontier Extended
 
-A fork of GLFrontier (OpenGL Frontier Elite 2) that modernizes the build system and adds cross-platform support, including WebAssembly and Android.
+A fork of GLFrontier (OpenGL Frontier Elite 2) that modernizes the build system, adds cross-platform support (including WebAssembly and Android) and mods the game itself.
 
 ## Game Controls
 
 * Ctrl-F11	- Toggle fullscreen.
-* Ctrl-E	- Toggle hardware GL / original software renderers.
+* Ctrl-E	- Toggle the OpenGL renderer / the game's original software rendered look.
 * Ctrl-M	- Toggle mouse grabbing.
 * Ctrl-Q	- Quit.
-* Ctrl-F    - Toggles m68k menu (cheat menu).
+* Ctrl-F	- Toggle the in-game menu (settings, cheats, mods, debug).
+* Ctrl-V	- Toggle the free camera (in the flight view).
 * F	        - Toggles fps readout.
+
+### Free camera
+
+Pauses the game and lets you fly a camera around, e.g. to look at your ship. Start it with Ctrl-V or the FREE CAMERA button in the emulator menu (the cog, also in the touch dropdown).
+
+* W/S, A/D	- Forward / back, left / right.
+* R/F	- Up / down (or Page Up / Page Down).
+* Arrow keys or mouse drag	- Look.
+* Q/E	- Roll.
+* +/- or mouse wheel	- Speed (each step doubles or halves it), Shift for 8x.
+* H	- Hide / show the help box.
+* Esc or Ctrl-V	- Back to the game.
+
+On touch screens: drag on the left half to move (a thumbstick that starts under your finger), drag on the right half to look, and use the on-screen buttons for up / down, roll, speed, help and exit.
 
 ## What's New in This Fork Of GLFrontier
 * Added native Android build (APK; no external emulator required)
 * Added WebAssembly (Wasm) build via Emscripten for browser-based play at full speed
-* Implemented touchscreen support with on-screen controls
-* Added a dedicated software renderer using SDL's internal renderer
+* Rewritten OpenGL renderer: batched drawing, planets drawn from the game's own data (surface features, atmosphere haze), much faster on weak machines
+* Touchscreen support with on-screen controls that follow the game's current screen and view
+* In-game menu (Dear ImGui) styled after the game's own interface
+* Cheats: cash (presets and a slider), cargo, elite rating, military ranks, clean criminal record, and for your ship: drive, lasers, shields, missiles, equipment, refuel and repair
+* Mods to the game code (see below):
+  * Auto Field-Maintenance Unit: equipment sold at every station; for a tonne of hydrogen it repairs the hull and all damaged equipment and gives the ship a deluxe service (drive and equipment), anywhere, from the comms panel
+  * Free camera
+  * Custom ship models: new looks for existing ships, and new ship types with their own name, stats, collision, shipyards and traffic (see FE2 Ship Builder below)
+  * Option to leave mod data out of saved games, so they load in the unmodded game
 * Migrated build system to CMake
 * Supports GCC, Clang, and MSVC
 
@@ -28,7 +50,8 @@ Required:
 
 Optional:
 * emscripten sdk (only for wasm builds)
-* gradle and android sdk (only for android builds)
+* Python 3 (only for android builds, standard library only; the JDK, Android SDK and NDK are downloaded if missing)
+* Python 3 (only for changing the game code, see below)
 
 ## How to Build
 
@@ -38,10 +61,83 @@ Optional:
 4. Run CMake: `cmake -DCMAKE_BUILD_TYPE=Release ..`
 5. Build the project: `cmake --build . --config Release`
 
+### Original (unmodded) game
+
+The modded game code is the default. To build the original Frontier: Elite 2 code instead, with none of this fork's mods, turn `GLF_MODDED_FE2` off. Use its own build directory so both can be built and run side by side:
+
+```
+cmake -S . -B build-original -DCMAKE_BUILD_TYPE=Release -DGLF_MODDED_FE2=OFF
+cmake --build build-original --config Release
+```
+
+This build runs `fe2/fe2.s` (via `fe2/fe2.s.c`, `fe2/fe2_orig_bin.h` and `fe2/fe2_orig_labels.h`). Host code that belongs to a mod is compiled out (`#if FE2_USE_MODDED`): no free camera, no AFMU, and the MODS page says so. Cheats, the GL renderer and everything else work the same, and the DEBUG page shows the build tag `ORIGINAL`.
+
+Saves from the modded game can hold mod state the original game doesn't know about. To take a save across, turn on MODS > "Saves loadable by the unmodded game" in the modded build before saving.
+
+### Android
+
+```
+tools\build-android.bat          # -> build-android/GLFrontier.apk
+tools\build-android.bat --run    # also install and start it (adb, USB debugging on)
+```
+
+On Linux / macOS: `python3 tools/androidBuild/build_android.py`, same options. Python 3 is all it needs (standard library only, see `requirements.txt`).
+
+No Gradle: the script builds the APK with the SDK's own tools (CMake + NDK, javac + d8, aapt2, apksigner). It uses the JDK (17+) and Android SDK it finds (`JAVA_HOME`, `ANDROID_HOME`); anything missing is downloaded once into `%LOCALAPPDATA%\glfrontier-android` (`~/.cache/glfrontier-android` elsewhere, or `GLF_ANDROID_CACHE`), outside the repository. The repository only holds `tools/androidBuild/`: a manifest, an icon, a small activity (forces landscape) and the script.
+
+* `--variant original` builds the unmodded game (`GLFrontier-original.apk`).
+* `--abi arm64-v8a x86_64` picks the CPUs to include (default arm64-v8a, every current phone; add x86_64 for the emulator). Anything but the default gets the ABIs in its name, e.g. `GLFrontier-x86_64.apk`, so `GLFrontier.apk` is always the one for phones.
+* Game data is compiled into the library, so the APK is all there is; saves go to the app's internal storage.
+* The APK is signed with the debug key (`~/.android/debug.keystore`, or one made in the cache folder).
+
+## Icon
+
+`tools/icon/make_icon.py` draws the game's icon (a ringed gas giant, after the Frontier: Elite II logo) and writes every copy the builds use: `src/glfrontier.ico` for the Windows exe and its window (`src/glfrontier.rc`), the Android launcher icons in `tools/androidBuild/res`, and the web favicon, inlined in `vendor/minshell.html`. The results are committed; run it (`pip install -r requirements.txt` first) only to change the icon.
+
+## Modding the Game Code
+
+The game is Frontier: Elite 2's 68k code, disassembled by Tom Morton, in `fe2/fe2_modded.s`. It is assembled by `tools/as68k` into C (`fe2/fe2_modded.s.c`), which is what actually runs.
+
+1. Build as68k once: `tools/as68k/build_as68k.bat` (or `make` in `tools/as68k`)
+2. Edit `fe2/fe2_modded.s`
+3. Run `python tools/build_fe2.py` to regenerate `fe2/fe2_modded.s.c`, `fe2/fe2_bin.h` and `fe2/fe2_labels.h` (`--variant original` does the same for `fe2/fe2.s`, `--variant all` both)
+4. Build the game as above
+
+Host code that uses a mod's labels (`FE2_L...`) must go inside `#if FE2_USE_MODDED`, with a fallback for the original build, or that build will not compile.
+
+The header of `fe2/fe2_modded.s` explains the assembler rules, how the game is organised and how mods hook in. In short:
+* Nothing in the middle of the file may change size (saved games and the host code hold addresses): existing code is changed with same-size `jmp` hooks, and new code and data go at the end of the file.
+* Host code finds the game's labels through `fe2/fe2_labels.h`, never hard coded addresses.
+* Big features are best written in C (`src/`) and called from the game with `hcall`.
+* Every mod is listed in `src/mods.c`, with what it stores in saved games and how to leave that out.
+
+The web build links prebuilt copies of the game code (`fe2/web`); rebuild them with `tools/build-fe2-web.bat` after changing it. Known game variables are listed in `fe2/NOTES.md`.
+
+## FE2 Ship Builder (custom ship models)
+
+`tools/fe2ShipBuilder` is a ship editor: build a ship's model, paint it, give it collision, stats, a name and the shipyards and traffic it shows up in, then put it in the game. It is its own CMake project; build it with `tools/fe2ShipBuilder/build_fe2ShipBuilder.bat`. `FE2ShipBuilder.exe` is one static file with the game binary compiled in, so it runs on any machine.
+
+* Ships are saved as `tools/fe2ShipBuilder/custom_ships/NNN.fe2m` (NNN = model number; new ship types count up from 240, big ships' extra parts down from 511). Every file there is compiled into GLFrontier.exe on the next build.
+* SAVE THE GAME in the studio packs the ships straight into an existing GLFrontier.exe instead, no rebuild needed.
+* A `custom_ships` folder beside the game overrides both, for quick tests.
+* OBJ in and out for Blender. Command line: `FE2ShipBuilder --build model.obj BASE INDEX out.fe2m [name]`, `FE2ShipBuilder --save-game GLFrontier.exe ship.fe2m...`.
+* The `.fe2m` format is described in `src/custom_ships.h`.
+
+## Galaxy Atlas (galaxy map)
+
+The game's galaxy map without its limits: zoom from the whole galaxy down to one star, drag across thousands of sectors, search every system in the galaxy by name, and see every info screen the galaxy map has for a system at once (system data, trade, the planets and starports with their details, the sector's other systems). Open it in the game from the emulator menu (GALAXY ATLAS; the game pauses while it is open), or run it on its own: build `tools/fe2GalaxyViewer/build_fe2GalaxyViewer.bat`, and `FE2GalaxyViewer.exe` is one static file.
+
+Its data is one for one with the game's because it comes from the game itself: the atlas calls the galaxy map's own routines and captures the text the game's info screens print. In the game it calls into the running game and puts the machine back exactly as it was afterwards. The code is shared: `src/galaxy`, see `tools/fe2GalaxyViewer/README.md`.
+
+* Drag to move, mouse wheel to zoom, click a star to select it, double-click to zoom in on it, right-click to measure distances from it. Ctrl+F finds, Home goes to where you are (Sol in the viewer).
+* Find any system in the galaxy by name (nearest first); pick one to fly there.
+* H (or View > Where people live) tints the map where systems have starports, cyan with orbital stations, green with surface ports only, at any zoom. The survey behind it is saved in `FE2Galaxy.cache` (next to the viewer, or with the game's saves).
+* Planets tab: the game's own system view (click the icons, as in the game), an orbit view (drag, zoom, double-click a planet for its moons and stations) and a list.
+* Viewer command line: `FE2GalaxyViewer --dump X Y [N]` prints sector X,Y (Sol = 0,0) and system N's screens, `--selftest` checks it over the whole galaxy (and that a call into a running game changes nothing), `--smoke` runs a scripted tour of the window.
+
 ## TODO
 
-* Complete set of cheat options
-* better rendering (eg: missing planet textures, stop texture jumping)
+* more mods
 
 ## Acknowledgments
 * Tom Morton original author of GLFrontier Wayback machine archive [Tom Morton - GLFrontier](https://web.archive.org/web/20171014043201/http://tom.noflag.org.uk/glfrontier.html)
@@ -50,12 +146,12 @@ Optional:
 * sdl2 for windowing and input: [SDL2](https://github.com/libsdl-org/SDL/tree/SDL2)
 * physFs for file system (loading and saving save game): [physFs](https://github.com/icculus/physfs)
 * minivorbis for audio: [MiniVorbis](https://github.com/edubart/minivorbis)
-* nuklear for gui: [Nuklear](https://github.com/Immediate-Mode-UI/Nuklear)
+* Dear ImGui for the in-game menu: [Dear ImGui](https://github.com/ocornut/imgui)
 * glad for loading opengl functions: [glad](https://github.com/Dav1dde/glad)
 * Rip of the GLU tesselator into a standalone static library: [glutess](https://github.com/mlabbe/glutess)
 
 ![GLFrontier img](https://brettwilsondev.github.io/glfrontier-extended/imgs/glfe2screenshot1.png "GLFrontier")
 ![GLFrontier menu img](https://brettwilsondev.github.io/glfrontier-extended/imgs/glfrontier_menu.png "GLFrontier Emulator Menu")
 ![GLFrontier cheat img](https://brettwilsondev.github.io/glfrontier-extended/imgs/glfrontier_cheats.png "GLFrontier Cheat Menu")
-![GLFrontier software renderer img](https://brettwilsondev.github.io/glfrontier-extended/imgs/glfrontier_software_renderer.png "GLFrontier Software Renderer")
+![GLFrontier ship img](https://brettwilsondev.github.io/glfrontier-extended/imgs/glfrontier_ship.png "GLFrontier Ship Outside View")
 ![GLFrontier touch controls img](https://brettwilsondev.github.io/glfrontier-extended/imgs/glfrontier_touch.png "GLFrontier Touch Controls")

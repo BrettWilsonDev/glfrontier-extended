@@ -2339,9 +2339,17 @@ int main (int argc, char **argv)
 	
 	fprintf (stderr, "Done! %d bytes and %d relocations.\n", size, num);
 
-	FILE *f = fopen("fe2.s.bin", "rb");
+	/* finish writing the binary before reading it back for the header */
+	fclose (fout);
+	FILE *f = fopen(bin_filename, "rb");
 	if (f) {
-		write_bin_as_header(f, "fe2_s_bin", "fe2_bin.h");
+		/* array named like xxd -i does: fe2_modded.s.bin -> fe2_modded_s_bin */
+		char var_name[128];
+		int i;
+		snprintf (var_name, sizeof (var_name), "%s", bin_filename);
+		for (i = 0; var_name[i]; i++)
+			if (!isalnum ((unsigned char)var_name[i])) var_name[i] = '_';
+		write_bin_as_header(f, var_name, "fe2_bin.h");
 		fclose(f);
 	}
 		

@@ -1,0 +1,115 @@
+/*
+ * gl_scene.h - records what the emulated game asks us to draw, and replays
+ * it in depth order when the frame is presented.
+ *
+ * HOW IT WORKS
+ *   The 68k code calls host functions (Nu_Put*, see hostcall.c) while it walks
+ *   its 3D scene. Each call copies what it needs out of emulated RAM into a
+ *   small typed record, stored in the current depth node (Nu_InsertZNode).
+ *   At Nu_DrawScreen the nodes are walked far-to-near and every record's
+ *   draw function is called, which pushes geometry into the gl_draw batch.
+ *
+ * ADDING A NEW PRIMITIVE / FEATURE
+ *   1. Add a line to GL_PRIMITIVES below:   X(MY_THING, draw_my_thing)
+ *   2. Define the payload struct and the draw function
+ *          void draw_my_thing(const void *payload);
+ *      in any file under src/gl (see gl_prims.c / gl_planet.c for examples).
+ *   3. Write the host call that captures data from the emulator:
+ *          void Nu_PutMyThing(void) {
+ *              MyThing *p = scene_record(PRIM_MY_THING, sizeof *p);
+ *              if (!p) return;
+ *              p->pos = m68k_vertex(GetReg(REG_A0) + 4);
+ *              ...
+ *          }
+ *      and hook it into the hcalls[] table in hostcall.c.
+ *   Draw functions must only read the payload: emulated RAM has moved on by
+ *   the time they run.
+ */
+#ifndef GL_SCENE_H
+#define GL_SCENE_H
+
+#include <stddef.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+/* Every primitive the scene knows how to replay: X(NAME, draw_function) */
+#define GL_PRIMITIVES(X)                                                                                     \
+	X(TRIANGLE, draw_triangle)                                                                               \
+	X(QUAD, draw_quad)                                                                                       \
+	X(LINE, draw_line)                                                                                       \
+	X(BEZIER_LINE, draw_bezier_line)                                                                         \
+	X(TEARDROP, draw_teardrop)                                                                               \
+	X(POINT, draw_point)                                                                                     \
+	X(TWINKLY_CIRCLE, draw_twinkly_circle)                                                                   \
+	X(CIRCLE, draw_circle)                                                                                   \
+	X(BLOB, draw_blob)                                                                                       \
+	X(OVAL, draw_oval)                                                                                       \
+	X(CYLINDER, draw_cylinder)                                                                               \
+	X(LINE_2D, draw_line_2d)                                                                                 \
+	X(COMPLEX_START, draw_complex_start)                                                                     \
+	X(COMPLEX_VERTEX, draw_complex_vertex)                                                                   \
+	X(COMPLEX_BEZIER, draw_complex_bezier)                                                                   \
+	X(COMPLEX_INNER, draw_complex_inner)                                                                     \
+	X(COMPLEX_END, draw_complex_end)                                                                         \
+	X(PLANET, draw_planet)                                                                                   \
+	X(SOFT_NODE, draw_soft_node)
+
+enum PrimOp
+{
+	PRIM_NONE = 0,
+#define X(name, fn) PRIM_##name,
+	GL_PRIMITIVES(X)
+#undef X
+		PRIM_COUNT
+};
+
+#define X(name, fn) void fn(const void *payload);
+GL_PRIMITIVES(X)
+#undef X
+
+/* ---- common payload building blocks ------------------------------------ */
+typedef struct
+{
+	int32_t x, y, z;
+} Vec3i;
+
+typedef struct
+{
+	uint8_t r, g, b, a;
+} Rgb8;
+
+/* Reads an emulator vertex (x, y, z longs) into view space (z flipped). */
+Vec3i m68k_vertex(uint32_t addr);
+/* Converts an Atari ST rgb444 colour word to 8-bit rgb */
+Rgb8 rgb444_to_rgb8(int rgb444);
+
+static inline void vec3i_to_f(Vec3i v, float out[3])
+{
+	out[0] = (float)v.x;
+	out[1] = (float)v.y;
+	out[2] = (float)v.z;
+}
+
+/* ---- recording (called from Nu_Put* host calls) ------------------------ */
+
+/* Reserve `size` bytes for a record of type `op` in the current depth node.
+ * Returns NULL when recording is disabled or the frame is full: callers just
+ * return in that case. */
+void *scene_record(enum PrimOp op, size_t size);
+
+/* True when the GL renderer is active (not the original software one) */
+bool scene_active(void);
+
+/* Start a new frame of recording (Nu_3DViewInit) */
+void scene_reset(void);
+/* Start a new depth node (Nu_InsertZNode); larger z is drawn first.
+ * Returns false if no node was started (renderer off, locked or full). */
+bool scene_insert_node(uint32_t z);
+/* Keep appending to the current node even if the game inserts new ones
+ * (used while a complex polygon is being recorded). */
+void scene_lock_node(bool lock);
+
+/* ---- replay (called from Nu_DrawScreen) -------------------------------- */
+void scene_draw(void);
+
+#endif /* GL_SCENE_H */

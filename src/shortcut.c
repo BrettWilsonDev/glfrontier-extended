@@ -1,106 +1,45 @@
+/*
+ * shortcut.c - Ctrl+key emulator shortcuts:
+ *   Ctrl-F11 fullscreen, Ctrl-M mouse grab, Ctrl-Q quit,
+ *   Ctrl-D debug dump, Ctrl-E cycle renderer.
+ */
 #include <SDL.h>
 
-#include "main.h"
-#include "audio.h"
+#include "hostcall.h"
 #include "renderer.h"
 #include "shortcut.h"
-#include "hostcall.h"
-#include "../m68000.h"
-
-/* List of possible short-cuts(MUST match SHORTCUT_xxxx) */
-const char *pszShortCutTextStrings[NUM_SHORTCUTS + 1] = {
-	"(not assigned)",
-	"Full Screen",
-	"Mouse Mode",
-	NULL /*term*/
-};
-
-const char *pszShortCutF11TextString[] = {
-	"Full Screen",
-	NULL /*term*/
-};
-
-const char *pszShortCutF12TextString[] = {
-	"Mouse Mode",
-	NULL /*term*/
-};
-
-ShortCutFunction_t pShortCutFunctions[NUM_SHORTCUTS] = {
-	NULL,
-	ShortCut_FullScreen,
-	ShortCut_MouseMode,
-};
 
 SHORTCUT_KEY ShortCutKey;
 
-/*-----------------------------------------------------------------------*/
-/*
-  Clear shortkey structure
-*/
-void ShortCut_ClearKeys(void)
+static void toggle_mouse_grab(void)
 {
-	/* Clear short-cut key structure */
-	memset(&ShortCutKey, 0, sizeof(SHORTCUT_KEY));
+	bGrabMouse = !bGrabMouse;
+	if (!bInFullScreen)
+		SDL_SetRelativeMouseMode(bGrabMouse ? SDL_TRUE : SDL_FALSE);
 }
 
-/*-----------------------------------------------------------------------*/
-/*
-  Check to see if pressed any shortcut keys, and call handling function
-*/
 void ShortCut_CheckKeys(void)
 {
-	/* Check for supported keys: */
 	switch (ShortCutKey.Key)
 	{
-	case SDL_SCANCODE_F11: /* Switch between fullscreen/windowed mode */
-		ShortCut_FullScreen();
+	case SDLK_F11:
+		Screen_ToggleFullScreen();
 		break;
-	case SDLK_m: /* Toggle mouse mode */
-		ShortCut_MouseMode();
+	case SDLK_m:
+		toggle_mouse_grab();
 		break;
-	case SDLK_q: /* Quit program */
+	case SDLK_q:
+		bQuitProgram = TRUE;
 		SDL_Quit();
 		exit(0);
-		bQuitProgram = TRUE;
-		break;
 	case SDLK_d:
 		Call_DumpDebug();
 		break;
 	case SDLK_e:
 		Screen_ToggleRenderer();
 		break;
+	default:
+		break;
 	}
-
-	/* And clear */
-	ShortCut_ClearKeys();
-}
-
-/*-----------------------------------------------------------------------*/
-/*
-  Shortcut to toggle full-screen
-*/
-void ShortCut_FullScreen(void)
-{
-	Screen_ToggleFullScreen();
-}
-
-/*-----------------------------------------------------------------------*/
-/*
-  Shortcut to toggle mouse mode
-*/
-void ShortCut_MouseMode(void)
-{
-	bGrabMouse = !bGrabMouse; /* Toggle flag */
-
-	if (!bInFullScreen)
-	{
-		if (bGrabMouse)
-		{
-			SDL_SetRelativeMouseMode(SDL_TRUE);
-		}
-		else
-		{
-			SDL_SetRelativeMouseMode(SDL_FALSE);
-		}
-	}
+	memset(&ShortCutKey, 0, sizeof(ShortCutKey));
 }

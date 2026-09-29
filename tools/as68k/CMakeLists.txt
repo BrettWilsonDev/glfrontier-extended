@@ -25,8 +25,8 @@ if(WIN32)
         # 2. Create the Batch file line by line
         COMMAND ${CMAKE_COMMAND} -E echo "@echo off" > "$<TARGET_FILE_DIR:as68k>/${script_name}.bat"
         COMMAND ${CMAKE_COMMAND} -E echo "pushd %~dp0" >> "$<TARGET_FILE_DIR:as68k>/${script_name}.bat"
-        COMMAND ${CMAKE_COMMAND} -E echo "as68k.exe fe2.s.c --output-c fe2.s" >> "$<TARGET_FILE_DIR:as68k>/${script_name}.bat"
-        COMMAND ${CMAKE_COMMAND} -E echo "xxd.exe -i fe2.s.bin fe2_bin.h" >> "$<TARGET_FILE_DIR:as68k>/${script_name}.bat"
+        COMMAND ${CMAKE_COMMAND} -E echo "as68k.exe --output-c fe2_modded.s" >> "$<TARGET_FILE_DIR:as68k>/${script_name}.bat"
+        COMMAND ${CMAKE_COMMAND} -E echo "xxd.exe -i fe2_modded.s.bin fe2_bin.h" >> "$<TARGET_FILE_DIR:as68k>/${script_name}.bat"
         COMMAND ${CMAKE_COMMAND} -E echo "popd" >> "$<TARGET_FILE_DIR:as68k>/${script_name}.bat"
         COMMAND ${CMAKE_COMMAND} -E echo "pause" >> "$<TARGET_FILE_DIR:as68k>/${script_name}.bat"
         
@@ -38,8 +38,8 @@ else()
     add_custom_command(TARGET as68k POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E echo "#!/bin/sh" > "$<TARGET_FILE_DIR:as68k>/${script_name}.sh"
         COMMAND ${CMAKE_COMMAND} -E echo "cd \"$(dirname \"$0\")\"" >> "$<TARGET_FILE_DIR:as68k>/${script_name}.sh"
-        COMMAND ${CMAKE_COMMAND} -E echo "./as68k fe2.s.c --output-c fe2.s" >> "$<TARGET_FILE_DIR:as68k>/${script_name}.sh"
-        COMMAND ${CMAKE_COMMAND} -E echo "xxd -i fe2.s.bin fe2_bin.h" >> "$<TARGET_FILE_DIR:as68k>/${script_name}.sh"
+        COMMAND ${CMAKE_COMMAND} -E echo "./as68k --output-c fe2_modded.s" >> "$<TARGET_FILE_DIR:as68k>/${script_name}.sh"
+        COMMAND ${CMAKE_COMMAND} -E echo "xxd -i fe2_modded.s.bin fe2_bin.h" >> "$<TARGET_FILE_DIR:as68k>/${script_name}.sh"
         COMMAND ${CMAKE_COMMAND} -E echo "read -p \"Press enter to continue...\"" >> "$<TARGET_FILE_DIR:as68k>/${script_name}.sh"
         COMMAND chmod +x "$<TARGET_FILE_DIR:as68k>/${script_name}.sh"
         VERBATIM

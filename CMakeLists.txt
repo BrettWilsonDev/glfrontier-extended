@@ -1,40 +1,36 @@
+set(CMAKE_POLICY_VERSION_MINIMUM "3.5")
 cmake_minimum_required(VERSION 3.22)
 
-# Get project name from the folder name
-set(PROJECT_NAME GLFrontier)
-project(${PROJECT_NAME} C)
+project(GLFrontier C CXX)
 
 set(CMAKE_C_STANDARD 99)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ##########################################################################################
-# Configurable options
+# Options
 ##########################################################################################
 
-# library toggles
 option(USE_SDL2 "Use SDL2" ON)
-option(USE_PHYSFS "Use PHYSFS" ON)
-option(USE_GLAD "Use GLAD" ON)
-
-# build options
+option(USE_PHYSFS "Use PhysFS" ON)
+option(USE_GLAD "Load OpenGL with glad (desktop only)" ON)
 option(BUILD_SDL_SHARED_LIB "Build SDL as a shared library" OFF)
-option(USE_GL_RENDERER "Use OpenGL renderer instead of software based SDL internal renderer" ON)
+# ON: the game code with this fork's mods (fe2/fe2_modded.s). OFF: the
+# unmodified game (fe2/fe2.s); host code for the mods is compiled out.
+# Use a separate build directory for each, e.g. build / build-original.
+option(GLF_MODDED_FE2 "Build the modded game code (OFF: the original game)" ON)
 
-# set(USE_GL_RENDERER OFF CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE)
+if(NOT DEFINED PLATFORM)
+    set(PLATFORM "default") # "Web" for emscripten builds
+endif()
 
-##########################################################################################
-# Android: disable GLAD, use GLES3 directly
-##########################################################################################
-
-if(ANDROID)
+# Android and the web use GLES3 / WebGL2 directly
+if(ANDROID OR PLATFORM STREQUAL "Web")
     set(USE_GLAD OFF CACHE BOOL "" FORCE)
 endif()
 
-##########################################################################################
-# MSVC runtime linking
-##########################################################################################
-
-# this is here to ensure the runtime is linked staticly for msvc
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+# MSVC: link the runtime statically
+if(MSVC)
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
     else()
@@ -42,189 +38,108 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_COMPILER_ID STREQUAL "MSVC")
     endif()
 endif()
 
-##########################################################################################
-# Platform Configuration
-##########################################################################################
-
-if(NOT DEFINED PLATFORM)
-    set(PLATFORM "default")
-endif()
-
-##########################################################################################
-# Add dependencies with FetchContent
-##########################################################################################
-
-# libraries array to be linked
-set(LIBRARIES ${PROJECT_NAME})
+# Libraries linked into the game, filled in below
+set(LIBRARIES "")
 
 include(FetchContent)
-function(add_git_dependency libName gitURL gitTag)
-
-    FetchContent_Declare(${libName}
-        GIT_REPOSITORY ${gitURL}
-        GIT_TAG ${gitTag}
+function(add_git_dependency name url tag)
+    FetchContent_Declare(${name}
+        GIT_REPOSITORY ${url}
+        GIT_TAG ${tag}
         GIT_SHALLOW TRUE
         GIT_PROGRESS TRUE
     )
-
-    if(NOT ("${libName}" STREQUAL "libname"))
-        FetchContent_MakeAvailable(${libName})
-    endif()
-
+    FetchContent_MakeAvailable(${name})
 endfunction()
 
 ##########################################################################################
-# SDL2 Setup
+# SDL2
 ##########################################################################################
 
-if(USE_SDL2 AND NOT ${PLATFORM} STREQUAL "Web")
-    set(CMAKE_USE_FORWARD_SLASHES ON)
-
-    set(SDL2IMAGE_INSTALL OFF)
-    set(BUILD_SHARED_LIBS FALSE)
-
+if(USE_SDL2 AND NOT PLATFORM STREQUAL "Web")
+    set(BUILD_SHARED_LIBS ${BUILD_SDL_SHARED_LIB})
     if(BUILD_SDL_SHARED_LIB)
-        set(BUILD_SHARED_LIBS TRUE)
         option(SDL_SHARED "Build SDL as a shared library" ON)
     endif()
 
-    set(SDL_AUDIO ON CACHE BOOL "" FORCE)
-    set(SDL_VIDEO ON CACHE BOOL "" FORCE)
-    set(SDL_TIMERS ON CACHE BOOL "" FORCE)
-    set(SDL_THREADS ON CACHE BOOL "" FORCE)
-    set(SDL_RENDER ON CACHE BOOL "" FORCE)
-    set(SDL_EVENTS ON CACHE BOOL "" FORCE)
-    set(SDL_CPUINFO ON CACHE BOOL "" FORCE)
-    set(SDL_ATOMIC ON CACHE BOOL "" FORCE)
+    foreach(sub AUDIO VIDEO TIMERS THREADS RENDER EVENTS CPUINFO ATOMIC)
+        set(SDL_${sub} ON CACHE BOOL "" FORCE)
+    endforeach()
+    foreach(sub FILE FILESYSTEM MISC TEST EXAMPLES DEMOS)
+        set(SDL_${sub} OFF CACHE BOOL "" FORCE)
+    endforeach()
+    set(SDL2MAIN OFF CACHE BOOL "" FORCE)
 
     if(ANDROID)
-        set(SDL_JOYSTICK ON CACHE BOOL "" FORCE)
-        set(SDL_HAPTIC ON CACHE BOOL "" FORCE)
-        set(SDL_SENSOR ON CACHE BOOL "" FORCE)
-        set(SDL_POWER ON CACHE BOOL "" FORCE)
-        set(SDL_FILE OFF CACHE BOOL "" FORCE)
-        set(SDL_FILESYSTEM OFF CACHE BOOL "" FORCE)
-        set(SDL_MISC OFF CACHE BOOL "" FORCE)
-        set(SDL_HIDAPI OFF CACHE BOOL "" FORCE)
+        foreach(sub JOYSTICK HAPTIC SENSOR POWER)
+            set(SDL_${sub} ON CACHE BOOL "" FORCE)
+        endforeach()
+        # SDL's Java side (HIDDeviceManager) always calls into hidapi's
+        # native code at startup: without it the app dies on launch
+        set(SDL_HIDAPI ON CACHE BOOL "" FORCE)
         set(SDL_HIDAPI_JOYSTICK OFF CACHE BOOL "" FORCE)
     else()
-        set(SDL_JOYSTICK OFF CACHE BOOL "" FORCE)
-        set(SDL_HAPTIC OFF CACHE BOOL "" FORCE)
-        set(SDL_SENSOR OFF CACHE BOOL "" FORCE)
-        set(SDL_POWER OFF CACHE BOOL "" FORCE)
-        set(SDL_FILE OFF CACHE BOOL "" FORCE)
-        set(SDL_FILESYSTEM OFF CACHE BOOL "" FORCE)
-        set(SDL_MISC OFF CACHE BOOL "" FORCE)
+        foreach(sub JOYSTICK HAPTIC SENSOR POWER)
+            set(SDL_${sub} OFF CACHE BOOL "" FORCE)
+        endforeach()
     endif()
 
-    set(SDL2MAIN OFF CACHE BOOL "" FORCE)
-    set(SDL_TEST OFF CACHE BOOL "" FORCE)
-    set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
-    set(SDL_DEMOS OFF CACHE BOOL "" FORCE)
-
-    set(dep SDL2)
-    add_git_dependency(
-        ${dep}
-        https://github.com/libsdl-org/SDL.git
-        SDL2
-    )
-
-    FetchContent_GetProperties(${dep})
-    if(NOT ${dep}_POPULATED)
-    endif()
+    add_git_dependency(SDL2 https://github.com/libsdl-org/SDL.git SDL2)
 
     if(ANDROID)
-        list(APPEND LIBRARIES SDL2-static)
-    else()
+        set(SDL_TARGET SDL2-static)
+    elseif(BUILD_SDL_SHARED_LIB)
+        set(SDL_TARGET SDL2)
         list(APPEND LIBRARIES SDL2main)
-        if(BUILD_SDL_SHARED_LIB)
-            list(APPEND LIBRARIES SDL2)
-        else()
-            list(APPEND LIBRARIES SDL2-static)
-        endif()
+    else()
+        set(SDL_TARGET SDL2-static)
+        list(APPEND LIBRARIES SDL2main)
     endif()
-
-    include_directories(RECURSE ${sdl2_SOURCE_DIR}/include/SDL2/)
+    list(APPEND LIBRARIES ${SDL_TARGET})
 endif()
 
-if((USE_SDL2) AND (${PLATFORM} STREQUAL "Web"))
+if(USE_SDL2 AND PLATFORM STREQUAL "Web")
+    # emscripten provides SDL2 (-s USE_SDL=2); only the headers are needed here
     FetchContent_Declare(SDL2
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
         GIT_TAG SDL2
         GIT_SHALLOW TRUE
-        GIT_PROGRESS TRUE
     )
-
-    if(NOT SDL2_POPULATED)
+    FetchContent_GetProperties(SDL2)
+    if(NOT sdl2_POPULATED)
         FetchContent_Populate(SDL2)
     endif()
-
-    include_directories(RECURSE ${sdl2_SOURCE_DIR}/include)
+    include_directories(${sdl2_SOURCE_DIR}/include)
 endif()
 
 ##########################################################################################
-# Physfx Setup
+# PhysFS (save games)
 ##########################################################################################
 
 if(USE_PHYSFS)
-    set(PHYSFS_STATIC_BUILD ON CACHE BOOL "Build shared library")
-    set(PHYSFS_BUILD_SHARED OFF CACHE BOOL "Build shared library")
-    set(PHYSFS_BUILD_TEST OFF CACHE BOOL "Build tests")
-    set(PHYSFS_BUILD_DOCS OFF CACHE BOOL "Build documentation")
-
-    set(dep physfs)
-    add_git_dependency(
-        ${dep}
-        https://github.com/icculus/physfs.git
-        main
-    )
-
-    FetchContent_GetProperties(${dep})
-
+    set(PHYSFS_STATIC_BUILD ON CACHE BOOL "")
+    set(PHYSFS_BUILD_SHARED OFF CACHE BOOL "")
+    set(PHYSFS_BUILD_TEST OFF CACHE BOOL "")
+    set(PHYSFS_BUILD_DOCS OFF CACHE BOOL "")
+    add_git_dependency(physfs https://github.com/icculus/physfs.git main)
     list(APPEND LIBRARIES PhysFS::PhysFS-static)
 endif()
 
 ##########################################################################################
-# Glad Setup
+# OpenGL
 ##########################################################################################
 
-if(${PLATFORM} STREQUAL "Web")
-    # set(USE_GL_RENDERER ON CACHE BOOL "Use OpenGL renderer instead of software based SDL internal renderer" FORCE) # web dose not support gl for now
-    set(USE_GLAD OFF CACHE BOOL "Use Glad for OpenGL bindings" FORCE)
+if(USE_GLAD)
+    # glad 1.x: master is glad 2, which has no glad/glad.h or gladLoadGLLoader
+    set(GLAD_PROFILE "core" CACHE STRING "OpenGL profile")
+    set(GLAD_API "gl=" CACHE STRING "API type/version pairs, no version means latest")
+    set(GLAD_GENERATOR "c" CACHE STRING "Language to generate the binding for")
+    find_package(OpenGL REQUIRED)
+    add_git_dependency(glad https://github.com/Dav1dde/glad.git v0.1.36)
+    list(APPEND LIBRARIES glad)
 endif()
 
-if(USE_GL_RENDERER)
-    if(USE_GLAD)
-        set(dep glad)
-        add_git_dependency(
-            ${dep}
-            https://github.com/Dav1dde/glad.git
-            master
-        )
-
-        FetchContent_GetProperties(${dep})
-        if(NOT ${dep}_POPULATED)
-            FetchContent_Populate(${dep})
-
-            set(GLAD_PROFILE "core" CACHE STRING "OpenGL profile")
-            set(GLAD_API "gl=" CACHE STRING "API type/version pairs, like \"gl=3.2,gles=\", no version means latest")
-            set(GLAD_GENE*RATOR "c" CACHE STRING "Language to generate the binding for")
-
-            find_package(OpenGL REQUIRED)
-
-            add_subdirectory(${glad_SOURCE_DIR} ${glad_BINARY_DIR})
-        endif()
-
-        # add the dependency here to be linked
-        list(APPEND LIBRARIES ${dep})
-    endif()
-endif()
-
-##########################################################################################
-# Android: link GLES3 + EGL instead of GLAD
-##########################################################################################
-
-if(ANDROID AND USE_GL_RENDERER)
+if(ANDROID)
     find_library(GLES3_LIB GLESv3)
     find_library(EGL_LIB EGL)
     find_library(ANDROID_LIB android)
@@ -233,239 +148,254 @@ if(ANDROID AND USE_GL_RENDERER)
 endif()
 
 ##########################################################################################
-# nuklear Setup
+# Dear ImGui (emulator menu)
 ##########################################################################################
 
-#define USE_NK
-add_definitions(-DUSE_NK)
-
-if(USE_GL_RENDERER)
-    add_library(nuklear OBJECT ${CMAKE_CURRENT_LIST_DIR}/vendor/nuklear/nuklear_sdl_gl3_impl.c)
-    if(USE_GLAD)
-        target_link_libraries(nuklear PUBLIC glad)
-    endif()
-else()
-    add_library(nuklear OBJECT ${CMAKE_CURRENT_LIST_DIR}/vendor/nuklear/nuklear_sdl_impl.c)
+FetchContent_Declare(imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.91.9
+    GIT_SHALLOW TRUE
+)
+FetchContent_GetProperties(imgui)
+if(NOT imgui_POPULATED)
+    FetchContent_Populate(imgui)
 endif()
-target_include_directories(nuklear PUBLIC
-    ${sdl2_SOURCE_DIR}/include
-    $<BUILD_INTERFACE:${glad_BINARY_DIR}/include>
+
+add_library(imgui STATIC
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
 )
-
-list(APPEND LIBRARIES nuklear)
+target_sources(imgui PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
+if(ANDROID OR PLATFORM STREQUAL "Web")
+    target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_ES3)
+endif()
+target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+if(SDL_TARGET)
+    target_link_libraries(imgui PUBLIC ${SDL_TARGET})
+endif()
+list(APPEND LIBRARIES imgui)
 
 ##########################################################################################
-# glutess Setup
+# glutess (polygon tessellation for the GL renderer)
 ##########################################################################################
 
+# (priorityq-heap.c is #included by priorityq.c, so no glob here)
+set(GLUTESS_DIR ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess)
 add_library(glutess OBJECT
-    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/dict.c
-    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/geom.c
-    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/memalloc.c
-    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/mesh.c
-    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/normal.c
-    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/priorityq.c
-    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/render.c
-    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/sweep.c
-    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/tess.c
-    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/tessellate.c
-    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess/tessmono.c
-)
+    ${GLUTESS_DIR}/dict.c ${GLUTESS_DIR}/geom.c ${GLUTESS_DIR}/memalloc.c
+    ${GLUTESS_DIR}/mesh.c ${GLUTESS_DIR}/normal.c ${GLUTESS_DIR}/priorityq.c
+    ${GLUTESS_DIR}/render.c ${GLUTESS_DIR}/sweep.c ${GLUTESS_DIR}/tess.c
+    ${GLUTESS_DIR}/tessellate.c ${GLUTESS_DIR}/tessmono.c)
 list(APPEND LIBRARIES glutess)
 
 ##########################################################################################
-# FE2 m68k emulator setup
+# The emulated game (68k code translated to C)
 ##########################################################################################
 
-# include the host and m68000 headers
-include_directories(${CMAKE_CURRENT_LIST_DIR})
+add_compile_definitions(OGG_MUSIC LITTLE_ENDIAN)
 
-# add music support
-add_definitions(-DOGG_MUSIC)
-
-# build fe2 to use little endian
-add_definitions(-DLITTLE_ENDIAN)
-
-# disable the warnings flood
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-everything")
-endif()
-
-if(${PLATFORM} STREQUAL "Web")
-    # list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_part_two.a)
-    # list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_part_one.a)
-
-    list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_async_part_two.a)
-    list(APPEND LIBRARIES ${CMAKE_CURRENT_LIST_DIR}/fe2/web/libfe2_emscripten_async_part_one.a)
-
-    # add_library(fe2_part_one STATIC fe2/fe2.s.c)
-    # target_compile_options(fe2_part_one PRIVATE -DPART1 -O0)
-    # target_link_options(fe2_part_one PRIVATE -s ASYNCIFY)
-
-    # add_library(fe2_part_two STATIC fe2/fe2.s.c)
-    # target_compile_options(fe2_part_two PRIVATE -DPART2 -O0)
-    # target_link_options(fe2_part_two PRIVATE -s ASYNCIFY)
-
-    # add_library(fe2_part_one STATIC fe2/fe2.s.c)
-    # target_compile_options(fe2_part_one PRIVATE -DPART1 -O0)
-    # list(APPEND LIBRARIES fe2_part_one)
-
-    # add_library(fe2_part_two STATIC fe2/fe2.s.c)
-    # target_compile_options(fe2_part_two PRIVATE -DPART2 -O0)
-    # list(APPEND LIBRARIES fe2_part_two)
+# Both are generated by tools/build_fe2.py (--variant modded / original)
+if(GLF_MODDED_FE2)
+    set(FE2_SOURCE fe2/fe2_modded.s.c)
+    add_compile_definitions(FE2_USE_MODDED=1)
 else()
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_COMPILER_ID STREQUAL "MSVC")
-        add_library(fe2_part_one OBJECT fe2/fe2.s.c)
-        target_compile_options(fe2_part_one PRIVATE -DPART1)
-        list(APPEND LIBRARIES fe2_part_one)
-
-        add_library(fe2_part_two OBJECT fe2/fe2.s.c)
-        target_compile_options(fe2_part_two PRIVATE -DPART2)
-        list(APPEND LIBRARIES fe2_part_two)
-    else()
-        add_library(fe2_part_one OBJECT fe2/fe2.s.c)
-        target_compile_options(fe2_part_one PRIVATE -DPART1 -O1 -fomit-frame-pointer -fcommon)
-        list(APPEND LIBRARIES fe2_part_one)
-
-        add_library(fe2_part_two OBJECT fe2/fe2.s.c)
-        target_compile_options(fe2_part_two PRIVATE -DPART2 -O0 -fomit-frame-pointer -fcommon)
-        list(APPEND LIBRARIES fe2_part_two)
-    endif()
-
+    set(FE2_SOURCE fe2/fe2.s.c)
+    add_compile_definitions(FE2_USE_MODDED=0)
 endif()
-# build using OpenGL if not build using sdl renderer as a fall back
-if(USE_GL_RENDERER)
-    add_definitions(-DWITH_GL)
-endif()
+message(STATUS "Game code: ${FE2_SOURCE}")
 
-include_directories(${CMAKE_CURRENT_LIST_DIR}/fe2)
-include_directories(${CMAKE_CURRENT_LIST_DIR}/fe2/audio)
-
-##########################################################################################
-# Project executable setup
-##########################################################################################
-
-file(GLOB_RECURSE HEADER_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/vendor/*.h"
+include_directories(
+    ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/fe2
+    ${CMAKE_CURRENT_LIST_DIR}/fe2/audio
+    ${CMAKE_CURRENT_LIST_DIR}/vendor/glutess
+    ${CMAKE_CURRENT_LIST_DIR}/vendor/minivorbis
 )
-set(HEADER_DIRS "")
-foreach(HEADER_FILE ${HEADER_FILES})
-    get_filename_component(DIR "${HEADER_FILE}" DIRECTORY)
-    list(APPEND HEADER_DIRS "${DIR}")
-endforeach()
 
-# Remove duplicate paths
-list(REMOVE_DUPLICATES HEADER_DIRS)
+# The translated 68k code works out the overflow flag V from signed adds
+# that overflow: -fwrapv makes that defined. Without it clang (-O2) decides
+# V is always 0 and loops like "add.l d0,d0 / bvc" never end.
+#
+# FE2_FLAT: Start680x0_at, the whole game in one giant switch, is cut into
+# ~7500 small functions by tools/flatten_fe2.py (at build time, from
+# FE2_SOURCE). Same code, same runtime; emscripten needs it: on the giant
+# function its wasm backend and ASYNCIFY take hours. Natively it's optional.
+if(PLATFORM STREQUAL "Web")
+    set(FE2_FLAT_DEFAULT ON)
+else()
+    set(FE2_FLAT_DEFAULT OFF)
+endif()
+option(FE2_FLAT "Split the game code into small functions (tools/flatten_fe2.py)" ${FE2_FLAT_DEFAULT})
 
-# Add each unique header directory
-foreach(DIR ${HEADER_DIRS})
-    include_directories("${DIR}")
-endforeach()
+if(FE2_FLAT)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(FE2_FLAT_DIR ${CMAKE_BINARY_DIR}/fe2_flat)
+    set(FE2_FLAT_CHUNKS 8)
+    set(FE2_FLAT_SOURCES ${FE2_FLAT_DIR}/fe2_flat_main.c)
+    math(EXPR FE2_FLAT_LAST "${FE2_FLAT_CHUNKS} - 1")
+    foreach(k RANGE ${FE2_FLAT_LAST})
+        list(APPEND FE2_FLAT_SOURCES ${FE2_FLAT_DIR}/fe2_flat_${k}.c)
+    endforeach()
+    add_custom_command(
+        OUTPUT ${FE2_FLAT_SOURCES} ${FE2_FLAT_DIR}/fe2_flat.h
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/tools/flatten_fe2.py
+                ${CMAKE_CURRENT_LIST_DIR}/${FE2_SOURCE} ${FE2_FLAT_DIR} ${FE2_FLAT_CHUNKS}
+        DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${FE2_SOURCE} ${CMAKE_CURRENT_LIST_DIR}/tools/flatten_fe2.py
+        COMMENT "Splitting ${FE2_SOURCE} into small functions")
 
-# Adding our source files
-file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/*.c")
+    # part one: the blocks and the dispatch loop; part two: the instruction
+    # helpers, straight from the original file
+    add_library(fe2_part_one OBJECT ${FE2_FLAT_SOURCES})
+    target_include_directories(fe2_part_one PRIVATE ${FE2_FLAT_DIR})
+    add_library(fe2_part_two OBJECT ${FE2_SOURCE})
+    target_compile_definitions(fe2_part_two PRIVATE PART2)
+    if(MSVC)
+        target_compile_options(fe2_part_one PRIVATE /w)
+        target_compile_options(fe2_part_two PRIVATE /w)
+    elseif(EMSCRIPTEN)
+        # (no -fcommon: wasm has no common symbols, clang crashes on it)
+        target_compile_options(fe2_part_one PRIVATE -O2 -fwrapv -w)
+        target_compile_options(fe2_part_two PRIVATE -O2 -fwrapv -w)
+    else()
+        target_compile_options(fe2_part_one PRIVATE -O1 -fwrapv -fomit-frame-pointer -fcommon -w)
+        target_compile_options(fe2_part_two PRIVATE -O1 -fwrapv -fomit-frame-pointer -fcommon -w)
+    endif()
+    list(APPEND LIBRARIES fe2_part_one fe2_part_two)
+elseif(PLATFORM STREQUAL "Web")
+    message(FATAL_ERROR "The web build needs FE2_FLAT=ON")
+else()
+    # the game code is huge, so it is compiled in two halves
+    add_library(fe2_part_one OBJECT ${FE2_SOURCE})
+    add_library(fe2_part_two OBJECT ${FE2_SOURCE})
+    target_compile_definitions(fe2_part_one PRIVATE PART1)
+    target_compile_definitions(fe2_part_two PRIVATE PART2)
+    if(NOT MSVC)
+        target_compile_options(fe2_part_one PRIVATE -O1 -fwrapv -fomit-frame-pointer -fcommon -w)
+        target_compile_options(fe2_part_two PRIVATE -O0 -fwrapv -fomit-frame-pointer -fcommon -w)
+    endif()
+    list(APPEND LIBRARIES fe2_part_one fe2_part_two)
+endif()
 
-# Define PROJECT_INCLUDE to be the path to the include directory of the project
-set(PROJECT_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/src/")
+##########################################################################################
+# Game executable
+##########################################################################################
 
-# Declaring our executable
+file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_LIST_DIR}/src/*.c"
+    "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp")
+
+# Custom ship models and ships (tools/fe2ShipBuilder, src/custom_ships.c): every
+# tools/fe2ShipBuilder/custom_ships/NNN.fe2m is compiled into the executable, so the game stays one
+# standalone file. Adding, changing or deleting a file there re-runs this on
+# the next build. (.fe2m.off and .bak files are left out.) Modded builds only:
+# the original game has no hook for them.
+if(GLF_MODDED_FE2)
+    set(FE2_SHIP_FILES_DIR "${CMAKE_CURRENT_LIST_DIR}/tools/fe2ShipBuilder/custom_ships")
+    file(GLOB FE2_SHIP_FILES CONFIGURE_DEPENDS "${FE2_SHIP_FILES_DIR}/*.fe2m")
+    list(SORT FE2_SHIP_FILES)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${FE2_SHIP_FILES})
+    set(FE2_SHIPS_C "${CMAKE_CURRENT_BINARY_DIR}/generated/custom_ships_data.c")
+    set(FE2_SHIPS_CONTENT "/* Generated by CMakeLists.txt from tools/fe2ShipBuilder/custom_ships - do not edit. */
+#include \"custom_ships.h\"
+
+")
+    set(FE2_SHIPS_TABLE "")
+    set(FE2_SHIP_I 0)
+    foreach(FE2_SHIP_FILE ${FE2_SHIP_FILES})
+        get_filename_component(FE2_SHIP_NAME "${FE2_SHIP_FILE}" NAME)
+        file(READ "${FE2_SHIP_FILE}" FE2_SHIP_HEX HEX)
+        string(LENGTH "${FE2_SHIP_HEX}" FE2_SHIP_HEXLEN)
+        math(EXPR FE2_SHIP_LEN "${FE2_SHIP_HEXLEN} / 2")
+        string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," FE2_SHIP_BYTES "${FE2_SHIP_HEX}")
+        string(APPEND FE2_SHIPS_CONTENT "static const unsigned char ship${FE2_SHIP_I}[] = {${FE2_SHIP_BYTES}};
+")
+        string(APPEND FE2_SHIPS_TABLE "    {\"${FE2_SHIP_NAME}\", ship${FE2_SHIP_I}, ${FE2_SHIP_LEN}},
+")
+        math(EXPR FE2_SHIP_I "${FE2_SHIP_I} + 1")
+    endforeach()
+    string(APPEND FE2_SHIPS_CONTENT "
+const CustomShipFile custom_ships_embedded[] = {
+${FE2_SHIPS_TABLE}    {0, 0, 0},
+};
+")
+    file(CONFIGURE OUTPUT "${FE2_SHIPS_C}" CONTENT "${FE2_SHIPS_CONTENT}" @ONLY)
+    list(APPEND PROJECT_SOURCES "${FE2_SHIPS_C}")
+    message(STATUS "Custom ship models compiled in: ${FE2_SHIP_I} file(s) from tools/fe2ShipBuilder/custom_ships")
+endif()
+
+# Windows: the exe's icon (src/glfrontier.ico, from tools/icon/make_icon.py)
+if(WIN32)
+    enable_language(RC)
+    list(APPEND PROJECT_SOURCES "${CMAKE_CURRENT_LIST_DIR}/src/glfrontier.rc")
+endif()
+
 if(ANDROID)
     add_library(${PROJECT_NAME} SHARED ${PROJECT_SOURCES})
 else()
-    add_executable(${PROJECT_NAME})
-    target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCES})
+    add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
+endif()
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
+
+if(NOT MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall)
 endif()
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INCLUDE})
-
 ##########################################################################################
-# Compiler and linker flags
+# Linking
 ##########################################################################################
 
-if(NOT ${PLATFORM} STREQUAL "Web" AND NOT ANDROID)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++ -static -pthread")
-        target_link_libraries(${LIBRARIES} -static-libgcc -static-libstdc++ -static -lpthread -Wl,-Bstatic -lstdc++)
-        # target_link_libraries(${LIBRARIES})
-        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
-        endif()
-    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "GNU")
-        target_link_libraries(${LIBRARIES} -static-libgcc -static-libstdc++ -static -pthread -Wl,-Bstatic -lstdc++)
-        # target_link_libraries(${LIBRARIES})
-    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_C_COMPILER_ID STREQUAL "Intel")
-        target_link_libraries(${LIBRARIES} -static-intel -lpthread -Wl,-Bstatic -lstdc++)
-    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_COMPILER_ID STREQUAL "MSVC")
-        target_link_libraries(${LIBRARIES})
-
-        set_target_properties(${PROJECT_NAME} PROPERTIES
-            LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
-            LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE"
-        )
-
-        # dont forget to set  "cmake.configureSettings": { "CMAKE_BUILD_TYPE": "${buildType}" } in settings.json for vs code
-        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-            message("-- console enabled")
-            set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug")
-        else()
-            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
-        endif()
-    else()
-        target_link_libraries(${LIBRARIES})
+if(PLATFORM STREQUAL "Web" OR ANDROID)
+    target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
+    if(ANDROID)
+        # nothing in C calls SDL's hidapi JNI code, so the linker would leave
+        # it out of the static SDL; its Java side needs it at startup
+        target_link_options(${PROJECT_NAME} PRIVATE
+            -Wl,-u,Java_org_libsdl_app_HIDDeviceManager_HIDDeviceRegisterCallback)
     endif()
+elseif(MSVC)
+    target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
+    # no console window in release builds
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
+        LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /ZI") # edit and continue
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
+elseif(CMAKE_C_COMPILER_ID STREQUAL "Intel")
+    target_link_libraries(${PROJECT_NAME} ${LIBRARIES} -static-intel -lpthread)
 else()
-    target_link_libraries(${LIBRARIES})
-endif()
-
-##########################################################################################
-# Build flags and additional settings
-##########################################################################################
-
-add_definitions(-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
-
-# === Debug / Release flags ===
-if(CMAKE_BUILD_TYPE MATCHES "Debug")
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -DDEBUG")
-    message("-- Debug build: console enabled")
-else()
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG")
-    if(WIN32)
-        if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
-            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mwindows")
-        endif()
-        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mwindows")
-        endif()
+    # GCC / Clang: fully static executable
+    target_link_libraries(${PROJECT_NAME} ${LIBRARIES}
+        -static-libgcc -static-libstdc++ -static -pthread)
+    if(WIN32 AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_link_options(${PROJECT_NAME} PRIVATE -mwindows) # no console window
     endif()
 endif()
 
-# for web build when using emscripten
-# === Asyncify settings (for web build) ===
-if(ASYNCIFY)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s ASYNCIFY")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s TOTAL_STACK=8MB")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s ASYNCIFY_STACK_SIZE=131072") # 128KB is usually enough
+##########################################################################################
+# Web (emscripten)
+##########################################################################################
 
-    # Memory settings tuned for mobile + desktop balance
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s INITIAL_MEMORY=128MB")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s MAXIMUM_MEMORY=512MB") # Safe realistic max for most mobiles
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s ALLOW_MEMORY_GROWTH=1")
+# the game loop never returns to the browser: Call_Idle's SDL_Delay yields
+# through ASYNCIFY, so the web build always needs it
+if(ASYNCIFY OR PLATFORM STREQUAL "Web")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} \
+        -s ASYNCIFY \
+        -s TOTAL_STACK=8MB \
+        -s ASYNCIFY_STACK_SIZE=131072 \
+        -s INITIAL_MEMORY=128MB \
+        -s MAXIMUM_MEMORY=512MB \
+        -s ALLOW_MEMORY_GROWTH=1")
 endif()
 
-# === Common compiler flags ===
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
-
-# === Web / Emscripten specific settings ===
-if(${PLATFORM} STREQUAL "Web")
+if(PLATFORM STREQUAL "Web")
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
     set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "index" SUFFIX ".html")
-
-    # Optimization for size + speed on web (better than -Os in many game cases)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
-    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
-
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
     if(USE_SDL2)
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} \
             -s USE_SDL=2 \
@@ -478,11 +408,4 @@ if(${PLATFORM} STREQUAL "Web")
             -s GL_UNSAFE_OPTS=0 \
             --shell-file ../vendor/minshell.html")
     endif()
-endif()
-
-# Ensure that hot-reload is enabled for VS
-if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC" OR CMAKE_C_COMPILER_ID MATCHES "MSVC")
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /ZI")
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
 endif()

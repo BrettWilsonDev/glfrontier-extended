@@ -1,519 +1,351 @@
+/*
+ * audio.c - the game's sound effects (embedded 22kHz WAVs) and music
+ * (embedded Ogg Vorbis, when built with OGG_MUSIC), mixed in the SDL audio
+ * callback.
+ */
 #include <SDL.h>
-#include "main.h"
-#include "audio.h"
-#include "../m68000.h"
 
-#include "sfx_data.h"
+#include "audio.h"
+#include "m68000.h"
+#include "main.h"
+
 #include "music_data.h"
+#include "sfx_data.h"
 
 #ifdef OGG_MUSIC
 #define OGG_IMPL
 #define VORBIS_IMPL
 #include "minivorbis.h"
-#endif /* OGG_MUSIC */
+#endif
+
 BOOL bDisableSound = FALSE;
 
-#define SND_FREQ 22050
+#define SND_FREQ     22050
+#define NUM_CHANNELS 4 /* sound effects playing at once */
+#define NUM_SFX      33
+#define NUM_MUSIC    8
 
-/* Converted frontier SFX to wav samples. */
-#define MAX_CHANNELS 4
-
-typedef struct wav_stream
+typedef struct
 {
 	Uint8 *buf;
-	int buf_pos;
-	int buf_len;
-	int loop; /* -1 no loop, otherwise specifies loop start pos */
-} wav_stream;
+	int pos, len;
+	int loop; /* position to loop back to, -1 = play once */
+} Sample;
 
-#define MAX_WAV_SAMPLES 8
-#define MAX_SFX_SAMPLES 33
+static Sample sfx[NUM_SFX];
+static Sample channels[NUM_CHANNELS];
+static bool audio_running;
 
-wav_stream sfx_buf[MAX_SFX_SAMPLES];
-wav_stream wav_channels[MAX_CHANNELS];
-
-BOOL bSoundWorking = TRUE;			  /* Is sound OK */
-volatile BOOL bPlayingBuffer = FALSE; /* Is playing buffer? */
-int SoundBufferSize = 1024;			  /* Size of sound buffer */
-
+/* =========================================================================
+ * Music
+ * ========================================================================= */
 #ifdef OGG_MUSIC
+static const MusicData music_data[NUM_MUSIC] = {
+	{music_00_ogg, sizeof(music_00_ogg)}, {music_01_ogg, sizeof(music_01_ogg)},
+	{music_02_ogg, sizeof(music_02_ogg)}, {music_03_ogg, sizeof(music_03_ogg)},
+	{music_04_ogg, sizeof(music_04_ogg)}, {music_05_ogg, sizeof(music_05_ogg)},
+	{music_06_ogg, sizeof(music_06_ogg)}, {music_07_ogg, sizeof(music_07_ogg)}};
+
 static OggVorbis_File music_file;
-static int music_mode;
-static BOOL music_playing = FALSE;
-static int enabled_tracks;
+static int music_mode;     /* see Call_PlayMusic */
+static int enabled_tracks; /* bit per track */
+static bool music_playing;
 
-MusicData music_data[MAX_WAV_SAMPLES];
-SfxData sfx_data[MAX_SFX_SAMPLES];
-
-/* Callbacks for libvorbis to read OGG from memory */
-static size_t rw_read(void *ptr, size_t size, size_t nmemb, void *datasource)
+/* libvorbis reads the Ogg data through SDL_RWops */
+static size_t rw_read(void *ptr, size_t size, size_t n, void *src)
 {
-    SDL_RWops *rw = (SDL_RWops *)datasource;
-    return SDL_RWread(rw, ptr, size, nmemb);
+	return SDL_RWread(src, ptr, size, n);
 }
-
-static int rw_seek(void *datasource, ogg_int64_t offset, int whence)
+static int rw_seek(void *src, ogg_int64_t off, int whence)
 {
-    SDL_RWops *rw = (SDL_RWops *)datasource;
-    return SDL_RWseek(rw, offset, whence) >= 0 ? 0 : -1;
+	return SDL_RWseek(src, off, whence) >= 0 ? 0 : -1;
 }
-
-static int rw_close(void *datasource)
+static int rw_close(void *src)
 {
-    SDL_RWops *rw = (SDL_RWops *)datasource;
-    SDL_RWclose(rw);
-    return 0;
+	return SDL_RWclose(src), 0;
 }
-
-static long rw_tell(void *datasource)
+static long rw_tell(void *src)
 {
-    SDL_RWops *rw = (SDL_RWops *)datasource;
-    return SDL_RWtell(rw);
+	return (long)SDL_RWtell(src);
 }
+static const ov_callbacks rw_callbacks = {rw_read, rw_seek, rw_close, rw_tell};
 
-static ov_callbacks vorbis_callbacks = {
-    rw_read,
-    rw_seek,
-    rw_close,
-    rw_tell
-};
-
-static void safe_ov_clear(OggVorbis_File *vf) {
-    // Close just the datasource, then zero the struct
-    // without calling minivorbis's internal teardown
-    if (vf->datasource) {
-        SDL_RWclose((SDL_RWops *)vf->datasource);
-        vf->datasource = NULL;
-    }
-    memset(vf, 0, sizeof(*vf));
+/* Closes the stream without minivorbis' own teardown */
+static void close_music(void)
+{
+	if (music_file.datasource)
+		SDL_RWclose((SDL_RWops *)music_file.datasource);
+	memset(&music_file, 0, sizeof(music_file));
+	music_playing = false;
 }
 
 static void play_music(int track)
 {
-    if (track < 0 || track >= (sizeof(music_data) / sizeof(music_data[0])))
-    {
-        music_playing = FALSE;
-        return;
-    }
+	if (music_playing)
+		close_music();
+	if (track < 0 || track >= NUM_MUSIC)
+		return;
 
-    if (music_playing == TRUE)
-        safe_ov_clear(&music_file);
-
-    SDL_RWops *rw = SDL_RWFromConstMem(music_data[track].data, music_data[track].len);
-    if (rw == NULL)
-    {
-        log_printf("Could not create RWops for music track %d: %s\n", track, SDL_GetError());
-        music_playing = FALSE;
-        return;
-    }
-
-    if (ov_open_callbacks(rw, &music_file, NULL, 0, vorbis_callbacks) < 0)
-    {
-        log_printf("Libvorbis could not open music track %d\n", track);
-        SDL_RWclose(rw);
-        music_playing = FALSE;
-        return;
-    }
-
-    music_playing = TRUE;
+	SDL_RWops *rw = SDL_RWFromConstMem(music_data[track].data, (int)music_data[track].len);
+	if (!rw)
+	{
+		log_printf("Music track %d: %s\n", track, SDL_GetError());
+		return;
+	}
+	if (ov_open_callbacks(rw, &music_file, NULL, 0, rw_callbacks) < 0)
+	{
+		log_printf("Could not decode music track %d\n", track);
+		SDL_RWclose(rw);
+		return;
+	}
+	music_playing = true;
 }
 
-int rand_tracknum()
+static int random_track(void)
 {
-    int track;
-    if (enabled_tracks == 0)
-        return 999;
-    do
-    {
-        track = rand() % (sizeof(music_data) / sizeof(music_data[0]));
-    } while ((enabled_tracks & (1 << track)) == 0);
-    return track;
-}
-#endif /* OGG_MUSIC */
-
-void Call_PlayMusic()
-{
-#ifdef OGG_MUSIC
-    /* Playing mode in d0:
-     * -2 = play random track once
-     * -1 = play random tracks continuously
-     * 0+ = play specific track once
-     * d1:d2 is a mask of enabled tracks
-     */
-
-
-
-    music_mode = GetReg(0);
-
-    enabled_tracks = 0;
-
-    if (GetReg(1) & 0xff000000)
-        enabled_tracks |= 0x1;
-    if (GetReg(1) & 0xff0000)
-        enabled_tracks |= 0x2;
-    if (GetReg(1) & 0xff00)
-        enabled_tracks |= 0x4;
-    if (GetReg(1) & 0xff)
-        enabled_tracks |= 0x8;
-    if (GetReg(2) & 0xff000000)
-        enabled_tracks |= 0x10;
-    if (GetReg(2) & 0xff0000)
-        enabled_tracks |= 0x20;
-    if (GetReg(2) & 0xff00)
-        enabled_tracks |= 0x40;
-    if (GetReg(2) & 0xff)
-        enabled_tracks |= 0x80;
-
-    SDL_LockAudio();
-    switch (music_mode)
-    {
-    case -2:
-        /* hyperspace and battle music --
-         * don't play blue danube or reward music */
-        enabled_tracks &= ~0x40;
-        enabled_tracks &= ~0x80;
-        play_music(rand_tracknum());
-        break;
-    case -1:
-        /* any music */
-        play_music(rand_tracknum());
-        break;
-    default:
-        play_music(music_mode);
-        break;
-    }
-    SDL_UnlockAudio();
-#endif /* OGG_MUSIC */
+	if (!enabled_tracks)
+		return -1;
+	int track;
+	do
+		track = rand() % NUM_MUSIC;
+	while (!(enabled_tracks & (1 << track)));
+	return track;
 }
 
-#ifdef OGG_MUSIC
-static void stop_music()
+/* Mixes music into the buffer; moves on to the next track at the end */
+static void mix_music(Uint8 *buf, int len)
 {
-    music_playing = FALSE;
-    safe_ov_clear(&music_file);
+	for (int done = 0; music_playing && done < len;)
+	{
+		int section;
+		long n = ov_read(&music_file, (char *)buf + done, len - done, 0, 2, 1, &section);
+		if (n <= 0)
+		{
+			if (music_mode == -1)
+				play_music(random_track());
+			else
+				close_music();
+			break;
+		}
+		done += (int)n;
+	}
 }
 #endif /* OGG_MUSIC */
 
-void Call_StopMusic()
+/* D0 = mode: -2 random track once (no Blue Danube / reward music),
+ *            -1 random tracks continuously, 0+ that track once.
+ * D1:D2 = one byte per track, non-zero if the track is enabled. */
+void Call_PlayMusic(void)
 {
 #ifdef OGG_MUSIC
-    SDL_LockAudio();
-    stop_music();
-    SDL_UnlockAudio();
-#endif /* OGG_MUSIC */
+	u32 mask[2] = {(u32)GetReg(REG_D1), (u32)GetReg(REG_D2)};
+	enabled_tracks = 0;
+	for (int t = 0; t < NUM_MUSIC; t++)
+		if (mask[t / 4] & (0xffu << (24 - 8 * (t % 4))))
+			enabled_tracks |= 1 << t;
+
+	music_mode = GetReg(REG_D0);
+	SDL_LockAudio();
+	if (music_mode == -2)
+	{
+		enabled_tracks &= ~(0x40 | 0x80);
+		play_music(random_track());
+	}
+	else if (music_mode == -1)
+	{
+		play_music(random_track());
+	}
+	else
+	{
+		play_music(music_mode);
+	}
+	SDL_UnlockAudio();
+#endif
 }
 
-void Call_IsMusicPlaying()
+void Call_StopMusic(void)
 {
 #ifdef OGG_MUSIC
-    SetReg(0, music_playing);
+	SDL_LockAudio();
+	close_music();
+	SDL_UnlockAudio();
+#endif
+}
+
+void Call_IsMusicPlaying(void)
+{
+#ifdef OGG_MUSIC
+	SetReg(REG_D0, music_playing);
 #else
-    SetReg(0, 0);
-#endif /* OGG_MUSIC */
+	SetReg(REG_D0, 0);
+#endif
 }
 
-void Call_PlaySFX()
+/* =========================================================================
+ * Sound effects
+ * ========================================================================= */
+
+/* D0 = sample, D1 = channel */
+void Call_PlaySFX(void)
 {
-    int sample, chan;
-
-    SDL_LockAudio();
-
-    sample = (short)GetReg(REG_D0);
-    chan = (short)GetReg(REG_D1);
-
-    wav_channels[chan].buf_pos = 0;
-    wav_channels[chan].buf_len = sfx_buf[sample].buf_len;
-    wav_channels[chan].buf = sfx_buf[sample].buf;
-    wav_channels[chan].loop = sfx_buf[sample].loop;
-
-    SDL_UnlockAudio();
+	int sample = (short)GetReg(REG_D0), chan = (short)GetReg(REG_D1);
+	if (sample < 0 || sample >= NUM_SFX || chan < 0 || chan >= NUM_CHANNELS)
+		return;
+	SDL_LockAudio();
+	channels[chan] = sfx[sample];
+	channels[chan].pos = 0;
+	SDL_UnlockAudio();
 }
 
-/*-----------------------------------------------------------------------*/
-/*
-  SDL audio callback function - copy emulation sound to audio system.
-*/
-void Audio_CallBack(void *userdata, Uint8 *pDestBuffer, int len)
+static Sint16 clamp16(int v)
 {
-    Sint8 *pBuffer;
-    int i, j;
-    short sample;
-    BOOL playing = FALSE;
+	return (Sint16)(v < -32768 ? -32768 : v > 32767 ? 32767 : v);
+}
 
-    pBuffer = (Sint8 *)pDestBuffer;
-
-    for (i = 0; i < MAX_CHANNELS; i++)
-    {
-        if (wav_channels[i].buf != NULL)
-        {
-            playing = TRUE;
-            break;
-        }
-    }
-
-    memset(pDestBuffer, 0, len);
-
+/* SDL audio thread: 16 bit signed stereo */
+static void audio_callback(void *userdata, Uint8 *stream, int len)
+{
+	(void)userdata;
+	memset(stream, 0, (size_t)len);
 #ifdef OGG_MUSIC
-    if (music_playing)
-    {
-        i = 0;
-        while (i < len)
-        {
-            int amt;
-            int music_section;
-            amt = ov_read(&music_file, (char *)&pDestBuffer[i],
-                          (len - i), 0, 2, 1, &music_section);
-            i += amt;
+	mix_music(stream, len);
+#endif
 
-            /* end of stream */
-            if (amt == 0)
-            {
-                if (music_mode == -1)
-                {
-                    play_music(rand_tracknum());
-                }
-                else
-                {
-                    stop_music();
-                }
-                break;
-            }
-        }
-    }
-#endif /* OGG_MUSIC */
-
-    if (!playing)
-        return;
-
-    for (i = 0; i < len; i += 4)
-    {
-        sample = 0;
-        for (j = 0; j < MAX_CHANNELS; j++)
-        {
-            if (wav_channels[j].buf == NULL)
-                continue;
-            sample += *(short *)(wav_channels[j].buf + wav_channels[j].buf_pos);
-            wav_channels[j].buf_pos += 2;
-            if (wav_channels[j].buf_pos >= wav_channels[j].buf_len)
-            {
-                /* end of sample. either loop or terminate */
-                if (wav_channels[j].loop != -1)
-                {
-                    wav_channels[j].buf_pos = wav_channels[j].loop;
-                }
-                else
-                {
-                    wav_channels[j].buf = NULL;
-                }
-            }
-        }
-        /* stereo! */
-        *((short *)pBuffer) += sample;
-        pBuffer += 2;
-        *((short *)pBuffer) += sample;
-        pBuffer += 2;
-    }
+	Sint16 *out = (Sint16 *)stream;
+	for (int i = 0; i < len / 4; i++)
+	{
+		int mix = 0;
+		for (int c = 0; c < NUM_CHANNELS; c++)
+		{
+			Sample *s = &channels[c];
+			if (!s->buf)
+				continue;
+			mix += *(const Sint16 *)(s->buf + s->pos);
+			s->pos += 2;
+			if (s->pos >= s->len)
+			{
+				if (s->loop >= 0)
+					s->pos = s->loop;
+				else
+					s->buf = NULL;
+			}
+		}
+		if (mix)
+		{
+			out[2 * i] = clamp16(out[2 * i] + mix);
+			out[2 * i + 1] = clamp16(out[2 * i + 1] + mix);
+		}
+	}
 }
 
-/*
- * Loaded samples must be SND_FREQ, 16-bit signed. Reject
- * other frequencies but convert 8-bit unsigned.
- */
-void check_sample_format(SDL_AudioSpec *spec, Uint8 **buf, int *len, const char *filename)
+/* Loads an embedded WAV as 22kHz 16 bit signed (8 bit unsigned is
+ * converted, other formats are rejected) */
+static void load_sfx(Sample *s, const unsigned char *data, unsigned int len, int index)
 {
-    Uint8 *old_buf = *buf;
-    short *new_buf;
-    int i;
+	SDL_AudioSpec spec;
+	Uint8 *buf;
+	Uint32 bytes;
+	s->buf = NULL;
 
-    if (spec->freq != SND_FREQ)
-    {
-        log_printf("Sample %s is the wrong sample rate (wanted %dHz). Ignoring.\n", filename, SND_FREQ);
-        SDL_FreeWAV(*buf);
-        *buf = NULL;
-        return;
-    }
-
-    if (spec->format == AUDIO_U8)
-    {
-        new_buf = malloc((*len) * 2);
-        for (i = 0; i < (*len); i++)
-        {
-            new_buf[i] = (old_buf[i] ^ 128) << 8;
-        }
-        *len *= 2;
-        SDL_FreeWAV(old_buf);
-        *buf = (Uint8 *)new_buf;
-    }
-    else if (spec->format != AUDIO_S16)
-    {
-        log_printf("Sample %s is not 16-bit-signed or 8-bit unsigned. Ignoring.\n", filename);
-        SDL_FreeWAV(*buf);
-        *buf = NULL;
-        return;
-    }
+	SDL_RWops *rw = SDL_RWFromConstMem(data, (int)len);
+	if (!rw || !SDL_LoadWAV_RW(rw, 1, &spec, &buf, &bytes))
+	{
+		log_printf("Sound effect %d: %s\n", index, SDL_GetError());
+		return;
+	}
+	if (spec.freq != SND_FREQ || (spec.format != AUDIO_U8 && spec.format != AUDIO_S16))
+	{
+		log_printf("Sound effect %d has an unsupported format\n", index);
+		SDL_FreeWAV(buf);
+		return;
+	}
+	if (spec.format == AUDIO_U8)
+	{
+		Sint16 *wide = SDL_malloc(bytes * 2);
+		if (!wide)
+		{
+			SDL_FreeWAV(buf);
+			return;
+		}
+		for (Uint32 i = 0; i < bytes; i++)
+			wide[i] = (Sint16)((buf[i] ^ 128) << 8);
+		SDL_FreeWAV(buf);
+		buf = (Uint8 *)wide;
+		bytes *= 2;
+	}
+	s->buf = buf;
+	s->len = (int)bytes;
+	s->loop = (index == 19) ? SND_FREQ /* hyperspace */ : (index == 23) ? 0 /* noise */ : -1;
 }
 
-/*-----------------------------------------------------------------------*/
-/*
-  Initialize the audio subsystem. Return TRUE if all OK.
-  We use direct access to the sound buffer, set to a signed 16-bit stereo stream.
-*/
+/* =========================================================================
+ * Start up
+ * ========================================================================= */
+static unsigned char *const sfx_wav[NUM_SFX] = {
+	sfx_00_wav, sfx_01_wav, sfx_02_wav, sfx_03_wav, sfx_04_wav, sfx_05_wav, sfx_06_wav,
+	sfx_07_wav, sfx_08_wav, sfx_09_wav, sfx_10_wav, sfx_11_wav, sfx_12_wav, sfx_13_wav,
+	sfx_14_wav, sfx_15_wav, sfx_16_wav, sfx_17_wav, sfx_18_wav, sfx_19_wav, sfx_20_wav,
+	sfx_21_wav, sfx_22_wav, sfx_23_wav, sfx_24_wav, sfx_25_wav, sfx_26_wav, sfx_27_wav,
+	sfx_28_wav, sfx_29_wav, sfx_30_wav, sfx_31_wav, sfx_32_wav};
+static const unsigned int sfx_wav_len[NUM_SFX] = {
+	sizeof(sfx_00_wav), sizeof(sfx_01_wav), sizeof(sfx_02_wav), sizeof(sfx_03_wav), sizeof(sfx_04_wav),
+	sizeof(sfx_05_wav), sizeof(sfx_06_wav), sizeof(sfx_07_wav), sizeof(sfx_08_wav), sizeof(sfx_09_wav),
+	sizeof(sfx_10_wav), sizeof(sfx_11_wav), sizeof(sfx_12_wav), sizeof(sfx_13_wav), sizeof(sfx_14_wav),
+	sizeof(sfx_15_wav), sizeof(sfx_16_wav), sizeof(sfx_17_wav), sizeof(sfx_18_wav), sizeof(sfx_19_wav),
+	sizeof(sfx_20_wav), sizeof(sfx_21_wav), sizeof(sfx_22_wav), sizeof(sfx_23_wav), sizeof(sfx_24_wav),
+	sizeof(sfx_25_wav), sizeof(sfx_26_wav), sizeof(sfx_27_wav), sizeof(sfx_28_wav), sizeof(sfx_29_wav),
+	sizeof(sfx_30_wav), sizeof(sfx_31_wav), sizeof(sfx_32_wav)};
+
 void Audio_Init(void)
 {
-#ifdef OGG_MUSIC
-    music_data[0] = (MusicData){ music_00_ogg, music_00_ogg_len };
-    music_data[1] = (MusicData){ music_01_ogg, music_01_ogg_len };
-    music_data[2] = (MusicData){ music_02_ogg, music_02_ogg_len };
-    music_data[3] = (MusicData){ music_03_ogg, music_03_ogg_len };
-    music_data[4] = (MusicData){ music_04_ogg, music_04_ogg_len };
-    music_data[5] = (MusicData){ music_05_ogg, music_05_ogg_len };
-    music_data[6] = (MusicData){ music_06_ogg, music_06_ogg_len };
-    music_data[7] = (MusicData){ music_07_ogg, music_07_ogg_len };
+	if (bDisableSound)
+	{
+		log_printf("Sound: disabled\n");
+		return;
+	}
+	if (!SDL_WasInit(SDL_INIT_AUDIO) && SDL_InitSubSystem(SDL_INIT_AUDIO) < 0)
+	{
+		log_printf("Could not init audio: %s\n", SDL_GetError());
+		return;
+	}
 
-    sfx_data[0]  = (SfxData){ sfx_00_wav, sfx_00_wav_len };
-    sfx_data[1]  = (SfxData){ sfx_01_wav, sfx_01_wav_len };
-    sfx_data[2]  = (SfxData){ sfx_02_wav, sfx_02_wav_len };
-    sfx_data[3]  = (SfxData){ sfx_03_wav, sfx_03_wav_len };
-    sfx_data[4]  = (SfxData){ sfx_04_wav, sfx_04_wav_len };
-    sfx_data[5]  = (SfxData){ sfx_05_wav, sfx_05_wav_len };
-    sfx_data[6]  = (SfxData){ sfx_06_wav, sfx_06_wav_len };
-    sfx_data[7]  = (SfxData){ sfx_07_wav, sfx_07_wav_len };
-    sfx_data[8]  = (SfxData){ sfx_08_wav, sfx_08_wav_len };
-    sfx_data[9]  = (SfxData){ sfx_09_wav, sfx_09_wav_len };
-    sfx_data[10] = (SfxData){ sfx_10_wav, sfx_10_wav_len };
-    sfx_data[11] = (SfxData){ sfx_11_wav, sfx_11_wav_len };
-    sfx_data[12] = (SfxData){ sfx_12_wav, sfx_12_wav_len };
-    sfx_data[13] = (SfxData){ sfx_13_wav, sfx_13_wav_len };
-    sfx_data[14] = (SfxData){ sfx_14_wav, sfx_14_wav_len };
-    sfx_data[15] = (SfxData){ sfx_15_wav, sfx_15_wav_len };
-    sfx_data[16] = (SfxData){ sfx_16_wav, sfx_16_wav_len };
-    sfx_data[17] = (SfxData){ sfx_17_wav, sfx_17_wav_len };
-    sfx_data[18] = (SfxData){ sfx_18_wav, sfx_18_wav_len };
-    sfx_data[19] = (SfxData){ sfx_19_wav, sfx_19_wav_len };
-    sfx_data[20] = (SfxData){ sfx_20_wav, sfx_20_wav_len };
-    sfx_data[21] = (SfxData){ sfx_21_wav, sfx_21_wav_len };
-    sfx_data[22] = (SfxData){ sfx_22_wav, sfx_22_wav_len };
-    sfx_data[23] = (SfxData){ sfx_23_wav, sfx_23_wav_len };
-    sfx_data[24] = (SfxData){ sfx_24_wav, sfx_24_wav_len };
-    sfx_data[25] = (SfxData){ sfx_25_wav, sfx_25_wav_len };
-    sfx_data[26] = (SfxData){ sfx_26_wav, sfx_26_wav_len };
-    sfx_data[27] = (SfxData){ sfx_27_wav, sfx_27_wav_len };
-    sfx_data[28] = (SfxData){ sfx_28_wav, sfx_28_wav_len };
-    sfx_data[29] = (SfxData){ sfx_29_wav, sfx_29_wav_len };
-    sfx_data[30] = (SfxData){ sfx_30_wav, sfx_30_wav_len };
-    sfx_data[31] = (SfxData){ sfx_31_wav, sfx_31_wav_len };
-    sfx_data[32] = (SfxData){ sfx_32_wav, sfx_32_wav_len };
+	SDL_AudioSpec want = {0};
+	want.freq = SND_FREQ;
+	want.format = AUDIO_S16;
+	want.channels = 2;
+	want.samples = 1024;
+	want.callback = audio_callback;
+	if (SDL_OpenAudio(&want, NULL) != 0)
+	{
+		log_printf("Can't use audio: %s\n", SDL_GetError());
+		return;
+	}
 
-    int i;
-    SDL_AudioSpec desiredAudioSpec;
+	for (int i = 0; i < NUM_SFX; i++)
+		load_sfx(&sfx[i], sfx_wav[i], sfx_wav_len[i], i);
 
-    if (bDisableSound)
-    {
-        log_printf("Sound: Disabled\n");
-        bSoundWorking = FALSE;
-        return;
-    }
-
-    if (SDL_WasInit(SDL_INIT_AUDIO) == 0)
-    {
-        if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0)
-        {
-            log_printf("Could not init audio: %s\n", SDL_GetError());
-            bSoundWorking = FALSE;
-            return;
-        }
-    }
-
-    desiredAudioSpec.freq = SND_FREQ;
-    desiredAudioSpec.format = AUDIO_S16;
-    desiredAudioSpec.channels = 2;
-    desiredAudioSpec.samples = 1024;
-    desiredAudioSpec.callback = Audio_CallBack;
-    desiredAudioSpec.userdata = NULL;
-
-    if (SDL_OpenAudio(&desiredAudioSpec, NULL))
-    {
-        log_printf("Can't use audio: %s\n", SDL_GetError());
-        bSoundWorking = FALSE;
-        return;
-    }
-
-    SoundBufferSize = desiredAudioSpec.size;
-
-    for (i = 0; i < MAX_SFX_SAMPLES; i++)
-    {
-        SDL_RWops *rw = SDL_RWFromConstMem(sfx_data[i].data, sfx_data[i].len);
-        if (rw == NULL)
-        {
-            log_printf("Error creating RWops for sfx_%02d: %s\n", i, SDL_GetError());
-            sfx_buf[i].buf = NULL;
-            continue;
-        }
-
-        if (SDL_LoadWAV_RW(rw, 1, &desiredAudioSpec, &sfx_buf[i].buf, (Uint32 *)&sfx_buf[i].buf_len) == NULL)
-        {
-            log_printf("Error loading sfx_%02d: %s\n", i, SDL_GetError());
-            sfx_buf[i].buf = NULL;
-        }
-        else
-        {
-            check_sample_format(&desiredAudioSpec, &sfx_buf[i].buf, &sfx_buf[i].buf_len, "embedded sfx");
-        }
-
-        /* 19 (hyperspace) and 23 (noise) loop */
-        if (i == 19)
-            sfx_buf[i].loop = SND_FREQ;
-        else if (i == 23)
-            sfx_buf[i].loop = 0;
-        else
-            sfx_buf[i].loop = -1;
-    }
-
-    bSoundWorking = TRUE;
-    Audio_EnableAudio(TRUE);
-#endif
+	Audio_EnableAudio(TRUE);
 }
 
-/*-----------------------------------------------------------------------*/
-/*
-  Free audio subsystem
-*/
 void Audio_UnInit(void)
 {
-    int i;
-    Audio_EnableAudio(FALSE);
-
-    for (i = 0; i < MAX_SFX_SAMPLES; i++)
-    {
-        if (sfx_buf[i].buf)
-        {
-            SDL_FreeWAV(sfx_buf[i].buf);
-            sfx_buf[i].buf = NULL;
-        }
-    }
-
+	Audio_EnableAudio(FALSE);
+	SDL_CloseAudio();
+	for (int i = 0; i < NUM_SFX; i++)
+	{
+		if (sfx[i].buf)
+			SDL_free(sfx[i].buf); /* SDL_FreeWAV is SDL_free */
+		sfx[i].buf = NULL;
+	}
 #ifdef OGG_MUSIC
-    if (music_playing)
-        safe_ov_clear(&music_file);
+	close_music();
 #endif
-
-    SDL_CloseAudio();
 }
 
-/*-----------------------------------------------------------------------*/
-/*
-  Start/Stop sound buffer
-*/
-void Audio_EnableAudio(BOOL bEnable)
+void Audio_EnableAudio(BOOL enable)
 {
-    if (bEnable && !bPlayingBuffer)
-    {
-        SDL_PauseAudio(FALSE);
-        bPlayingBuffer = TRUE;
-    }
-    else if (!bEnable && bPlayingBuffer)
-    {
-        SDL_PauseAudio(!bEnable);
-        bPlayingBuffer = bEnable;
-    }
+	if ((bool)enable == audio_running)
+		return;
+	SDL_PauseAudio(enable ? 0 : 1);
+	audio_running = enable != 0;
 }

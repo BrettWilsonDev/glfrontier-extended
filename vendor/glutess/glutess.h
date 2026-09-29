@@ -44,8 +44,12 @@
 #define GLAPIENTRYP *
 #undef GLAPIENTRY
 #define GLAPIENTRY
+#ifndef GLAPI
 #define GLAPI
+#endif
 
+/* the GL types, unless a GL header (glad, gl.h, GLES) already gave them */
+#if !defined(__glad_h_) && !defined(__gl_h_) && !defined(__GL_H__) && !defined(__gles2_gl2_h_) && !defined(__gles3_gl3_h_)
 typedef int GLint;
 typedef unsigned int GLenum;
 
@@ -60,6 +64,7 @@ typedef unsigned char GLubyte;
 typedef unsigned char GLboolean;
 //typedef int GLboolean;
 typedef void GLvoid;
+#endif
 
 #define GL_FALSE 0
 #define GL_TRUE 1

@@ -267175,10 +267175,15 @@ void Init680x0 () {
 }
 void Start680x0 ()
 {
-	s32 i, jdest = 0x1c;
 	Regs[15]._u32 = MEM_SIZE;
+	Start680x0_at (0x1c);
+}
+void Start680x0_at (s32 entry)
+{
+	s32 i, jdest = entry;
 
 jumptable:
+	if (fe2vm_depth && fe2vm_check (jdest)) return;
 	manage_m68k_ram();
 	switch (jdest) {
 	case (0x1c):
@@ -476478,6 +476483,10 @@ __NL8ad9e:
 __NL8adc0_galaxy_bmp:
 	goto end_;
 		default: 
+	if (fe2vm_depth) {
+		fe2vm_bad_jump (jdest);
+		return;
+	}
 	#ifdef M68K_DEBUG
 		printf ("Bad jump target at line %d: $%x (rdest=$%x).\n", line_no, jdest, rdest);
 	#else

@@ -1,13 +1,24 @@
-#ifndef HATARI_KEYMAP_H
-#define HATARI_KEYMAP_H
+/*
+ * keymap.h - SDL key events to Atari ST scancodes.
+ */
+#ifndef KEYMAP_H
+#define KEYMAP_H
 
 #include <SDL_keyboard.h>
 
-extern void Keymap_Init(void);
-extern char Keymap_RemapKeyToSTScanCode(SDL_Keysym *pKeySym);
-extern void Keymap_LoadRemapFile(char *pszFileName);
-extern void Keymap_DebounceAllKeys(void);
-extern void Keymap_KeyDown(SDL_Keysym *sdlkey);
-extern void Keymap_KeyUp(SDL_Keysym *sdlkey);
-
+#ifdef __cplusplus
+extern "C"
+{
 #endif
+
+void Keymap_Init(void);
+void Keymap_KeyDown(SDL_Keysym *sdlkey);
+void Keymap_KeyUp(SDL_Keysym *sdlkey);
+/* Called by the game every frame; nothing to do with SDL key events */
+void Keymap_DebounceAllKeys(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* KEYMAP_H */

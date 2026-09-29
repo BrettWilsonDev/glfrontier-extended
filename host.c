@@ -148,14 +148,27 @@ static s32 get_fixup(s32 reloc, s32 code_end)
     }
 }
 
+/* FE2_USE_MODDED comes from CMake (GLF_MODDED_FE2); modded by default */
+#ifndef FE2_USE_MODDED
+#define FE2_USE_MODDED 1
+#endif
+
+#if FE2_USE_MODDED
 #include "fe2_bin.h"
+#define FE2_BIN fe2_modded_s_bin
+#define FE2_BIN_LEN fe2_modded_s_bin_len
+#else
+#include "fe2_orig_bin.h"
+#define FE2_BIN fe2_s_bin
+#define FE2_BIN_LEN fe2_s_bin_len
+#endif
 
 void load_binfile(const char *bin_filename)
 {
     s32 reloc, next, pos, code_end, i = 0;
 
-    unsigned char *bin_data = fe2_s_bin;
-    unsigned int len = fe2_s_bin_len;
+    unsigned char *bin_data = FE2_BIN;
+    unsigned int len = FE2_BIN_LEN;
 
     assert(len + LOAD_BASE < MEM_SIZE);         // Ensure we don't exceed memory bounds
     memcpy(m68kram + LOAD_BASE, bin_data, len); // Load binary into RAM
@@ -188,7 +201,7 @@ void load_binfile(const char *bin_filename)
 #ifdef M68K_DEBUG
 void m68k_print_line_no()
 {
-    printf("Hello. At fe2.s line %d.\n", line_no);
+    printf("Hello. At fe2_modded.s line %d.\n", line_no);
     fflush(stdout);
 }
 #endif /* M68K_DEBUG */

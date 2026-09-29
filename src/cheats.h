@@ -1,26 +1,99 @@
+/*
+ * cheats.h - edits the player's money, cargo, ratings and ship in emulated
+ * RAM for the cheat menu.
+ *
+ * Everything goes through the game's own variables and tables (found in
+ * fe2/fe2_modded.s), so cargo space, equipment mass and the like stay consistent
+ * with what the game itself would do.
+ */
 #ifndef CHEATS_H
 #define CHEATS_H
 
-#include <stdint.h>
 #include <stdbool.h>
 
-// External variables (kept for compatibility with your existing code)
-// extern int dump_m68k_toggle;
-extern int cash_value[4];
-extern int cheat_player_values[];
-extern int cheat_ship_values[];
-extern char *ship_ids[];
-extern int ship_id_index;
-
-// Core cheat functions (pure logic, no GUI)
-void init_cheats(void);
-
-void update_player_cheat_values_m68kram(void);
-void inject_player_cheat_values_m68kram(void);
-void inject_cash_value_m68kram(void);
-
-int  find_and_store_ship_ids(void);
-void update_ship_cheat_values_m68kram(unsigned int ship_index);
-void inject_ship_cheat_values_m68kram(void);
-
+#ifdef __cplusplus
+extern "C"
+{
 #endif
+
+/* Fitting equipment normally needs free cargo space for its mass; with
+ * this set it goes in anyway (free space can then go negative) */
+extern bool cheat_ignore_space;
+
+/* ---- money, in tenths of a credit ---- */
+long cheat_cash(void);
+void cheat_set_cash(long tenths);
+
+/* ---- cargo, in tonnes ---- */
+#define CHEAT_COMMODITIES 31
+const char *cheat_commodity_name(int i);
+int cheat_cargo(int i);
+int cheat_cargo_free(void);
+void cheat_add_cargo(int i, int tonnes);
+
+/* ---- ratings ---- */
+#define CHEAT_ELITE_RANKS    10 /* Harmless .. ELITE */
+#define CHEAT_MILITARY_RANKS 13 /* None .. Admiral, Outsider .. Prince */
+extern const char *const cheat_elite_rank_names[CHEAT_ELITE_RANKS];
+extern const char *const cheat_federal_rank_names[CHEAT_MILITARY_RANKS];
+extern const char *const cheat_imperial_rank_names[CHEAT_MILITARY_RANKS];
+
+int cheat_elite_rank(void);
+void cheat_set_elite_rank(int rank);
+int cheat_federal_rank(void);
+void cheat_set_federal_rank(int rank);
+int cheat_imperial_rank(void);
+void cheat_set_imperial_rank(int rank);
+/* Makes the player Clean with every authority */
+void cheat_clear_criminal_record(void);
+
+/* ---- the player's ship ---- */
+bool cheat_have_ship(void);
+void cheat_refuel(void);
+/* Full hull, full shields, nothing damaged */
+void cheat_repair(void);
+
+/* Shipyard items, in the order of the game's equipment list */
+typedef enum
+{
+	EQUIP_FLAG = 0,     /* a bit in the ship's equipment flags */
+	EQUIP_CABIN = 2,    /* passenger cabin */
+	EQUIP_LASER = 4,    /* goes on a gun mounting */
+	EQUIP_DRIVE = 6,    /* the ship's drive */
+	EQUIP_SHIELD = 8,   /* shield generator */
+	EQUIP_MISSILE = 10, /* goes on a missile pylon */
+	EQUIP_MINING = 12,  /* mining machine */
+} EquipKind;
+
+int cheat_equipment_count(void);
+/* items from here to cheat_equipment_count() - 1 are added by mods */
+int cheat_mod_equipment_first(void);
+const char *cheat_equipment_name(int item);
+EquipKind cheat_equipment_kind(int item);
+int cheat_equipment_mass(int item);
+
+/* The functions that change the ship return NULL on success or a short
+ * reason why not */
+bool cheat_has_flag(int item);
+const char *cheat_toggle_flag(int item);
+
+int cheat_drive(void); /* item, -1 = none */
+const char *cheat_fit_drive(int item);
+
+int cheat_gun_mounts(void);
+const char *cheat_gun_mount_name(int mount);
+int cheat_laser(int mount);                       /* item, -1 = empty */
+const char *cheat_fit_laser(int mount, int item); /* item -1 removes */
+
+int cheat_shields(void);                  /* generators fitted */
+const char *cheat_add_shields(int count); /* negative removes */
+
+int cheat_pylons(void);
+int cheat_missiles(void);                /* pylons in use */
+const char *cheat_fill_pylons(int item); /* item -1 empties them */
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* CHEATS_H */

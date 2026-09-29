@@ -1,0 +1,352 @@
+/*
+ * gl_planet.c - planets, drawn from the game's own 2D planet shape (with
+ * all its surface detail and shading); a ray traced sphere is the fallback
+ * when that shape can't be read.
+ */
+#include <stdlib.h>
+
+#include "gl_api.h"
+#include "gl_draw.h"
+#include "gl_fill2d.h"
+#include "gl_planet.h"
+#include "gl_prims.h"
+#include "gl_scene.h"
+#include "main.h"
+#include "m68000.h"
+
+/* =========================================================================
+ * Capture (runs inside the emulator)
+ * ========================================================================= */
+
+#define ADDR_PRIMITIVES_END 0x2caa4 /* end of the software display list */
+#define ADDR_DYN_COLS       0x56    /* dynamic colour table */
+
+enum
+{
+	PL_START = 156,
+	PL_LINE = 166,
+	PL_BEZIER = 182,
+	PL_ROW = 198,
+	PL_COLOURS = 208
+};
+
+/* Copies the 2D shape list the game just built for this planet (it starts
+ * at the address saved in A6-190 and ends at the display list end). Colour
+ * tables hold dynamic colour ids that are only valid right now, so they are
+ * replaced by their rgb444 values in the copy. */
+/* Words in the list the game just built, 0 if none or too long */
+static int list_words(uint32_t a6)
+{
+	uint32_t start = (uint32_t)STMemory_ReadLong(a6 - 190);
+	uint32_t end = (uint32_t)STMemory_ReadLong(ADDR_PRIMITIVES_END);
+	if (end <= start)
+		return 0;
+	if ((end - start) / 2 > PLANET_LIST_MAX)
+	{
+		static bool warned;
+		if (!warned)
+			log_printf("Planet: shape list of %u words is too long, drawing a plain sphere\n",
+					   (unsigned)((end - start) / 2));
+		warned = true;
+		return 0;
+	}
+	return (int)(end - start) / 2;
+}
+
+static void capture_list(PlanetDesc *p, int n)
+{
+	uint32_t start = (uint32_t)STMemory_ReadLong(p->ctx.a[6] - 190);
+	p->list_len = 0;
+	p->list_ok = false;
+	if (n == 0)
+		return;
+
+	for (int i = 0; i < n; i++)
+		p->list[i] = STMemory_ReadWord(start + i * 2);
+	p->list_len = (uint16_t)n;
+
+	int i = 0, fills = 0;
+	while (i < n)
+	{
+		switch (p->list[i++])
+		{
+		case PL_START:
+			break;
+		case PL_LINE:
+			i += 5;
+			break;
+		case PL_BEZIER:
+			i += 9;
+			break;
+		case PL_ROW:
+			i += 2;
+			break;
+		case PL_COLOURS:
+			if (i + 16 > n)
+				return;
+			for (int k = 0; k < 16; k++)
+				p->list[i + k] = STMemory_ReadWord(ADDR_DYN_COLS + p->list[i + k] + 2) & 0xfff;
+			i += 16;
+			fills++;
+			break;
+		default:
+			return; /* unknown opcode: fall back to the plain sphere */
+		}
+	}
+	p->list_ok = (i == n && fills > 0);
+}
+
+void Nu_PutPlanet(void)
+{
+	int words = list_words((uint32_t)GetReg(REG_A6));
+	PlanetDesc *p = scene_record(PRIM_PLANET, sizeof *p + (size_t)words * sizeof p->list[0]);
+	if (!p)
+		return;
+
+	for (int i = 0; i < 8; i++)
+	{
+		p->ctx.d[i] = GetReg(REG_D0 + i);
+		p->ctx.a[i] = (uint32_t)GetReg(REG_A0 + i);
+	}
+
+	p->obj_col = GetReg(REG_D6);
+	p->light_col = GetReg(REG_D1);
+	p->radius = (float)GetReg(REG_D0);
+	gl_read_light_dir(GetReg(REG_A1), p->light);
+	p->pos = m68k_vertex(GetReg(REG_A0) + 4);
+
+	/* 3x3 rotation matrix of signed 1.15 fixed point words, stored at A6-36 */
+	uint32_t m = GetReg(REG_A6) - 36;
+	for (int i = 0; i < 9; i++)
+		p->rot[i] = STMemory_ReadWord(m + i * 2) / -32768.0f;
+
+	capture_list(p, words);
+}
+
+/* =========================================================================
+ * GPU resources
+ *
+ * Planets are exact spheres ray traced per pixel, drawn over a screen
+ * rectangle that bounds the planet. That gives a perfectly round silhouette
+ * at any distance (no mesh facets or level-of-detail pops) and puts the
+ * ground exactly where the game's surface objects expect it when you are
+ * landed. Everything is in units of the planet radius so the maths stays
+ * precise in float even metres above a planet millions of units big.
+ * ========================================================================= */
+static GLuint sphere_prog, quad_vao, quad_vbo;
+static struct
+{
+	GLint rect, proj, centre, c, light_dir, diffuse, ambient;
+} us;
+
+static const char *VS_SPHERE =
+	"in vec2 aPos;\n"       /* unit quad 0..1 */
+	"uniform vec4 uRect;\n" /* NDC x0 y0 x1 y1 to cover */
+	"uniform vec4 uProj;\n" /* m[0], m[5], m[8], m[9] of the projection */
+	"out vec3 vRay;\n"
+	"void main(){\n"
+	"  vec2 ndc = mix(uRect.xy, uRect.zw, aPos);\n"
+	"  gl_Position = vec4(ndc, 0.0, 1.0);\n"
+	"  vRay = vec3((ndc.x + uProj.z) / uProj.x, (ndc.y + uProj.w) / uProj.y, -1.0);\n"
+	"}\n";
+
+static const char *FS_SPHERE =
+	"precision highp float;\n"
+	"in vec3 vRay;\n"
+	"uniform vec3 uCentre;\n" /* sphere centre / radius, eye space */
+	"uniform float uC;\n"     /* |centre|^2 - 1, computed in double on the CPU */
+	"uniform vec3 uLightDir;\n"
+	"uniform vec3 uDiffuse;\n"
+	"uniform vec3 uAmbient;\n"
+	"out vec4 fragColor;\n"
+	"void main(){\n"
+	"  vec3 d = normalize(vRay);\n"
+	"  float b = dot(d, uCentre);\n"
+	/* 1 - (distance from centre to the ray)^2; the cross product form avoids
+	 * cancelling two large numbers when the planet is far away */
+	"  vec3 x = cross(uCentre, d);\n"
+	"  float disc = 1.0 - dot(x, x);\n"
+	"  if (disc < 0.0) discard;\n"
+	"  float s = sqrt(disc);\n"
+	"  float t = (uC > 0.0) ? b - s : b + s;\n" /* outside: near hit; inside: far hit */
+	"  if (t <= 0.0) discard;\n"
+	"  vec3 n = t * d - uCentre;\n"
+	"  float l = max(dot(normalize(n), uLightDir), 0.0);\n"
+	"  fragColor = vec4(clamp(uAmbient + l * uDiffuse, 0.0, 1.0), 1.0);\n"
+	"}\n";
+
+void gl_planet_init(void)
+{
+	static const char *const attribs[] = {"aPos"};
+	sphere_prog = gd_build_program(VS_SPHERE, FS_SPHERE, attribs, 1);
+	us.rect = glGetUniformLocation(sphere_prog, "uRect");
+	us.proj = glGetUniformLocation(sphere_prog, "uProj");
+	us.centre = glGetUniformLocation(sphere_prog, "uCentre");
+	us.c = glGetUniformLocation(sphere_prog, "uC");
+	us.light_dir = glGetUniformLocation(sphere_prog, "uLightDir");
+	us.diffuse = glGetUniformLocation(sphere_prog, "uDiffuse");
+	us.ambient = glGetUniformLocation(sphere_prog, "uAmbient");
+
+	static const float quad[4][2] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
+	glGenVertexArrays(1, &quad_vao);
+	glGenBuffers(1, &quad_vbo);
+	glBindVertexArray(quad_vao);
+	glBindBuffer(GL_ARRAY_BUFFER, quad_vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
+	glBindVertexArray(0);
+}
+
+void gl_planet_shutdown(void)
+{
+	glDeleteBuffers(1, &quad_vbo);
+	glDeleteVertexArrays(1, &quad_vao);
+	glDeleteProgram(sphere_prog);
+}
+
+/* =========================================================================
+ * Drawing (runs at present time)
+ * ========================================================================= */
+typedef struct
+{
+	float rect[4];
+	float proj[4];
+	float centre[3];
+	float c;
+	float light[3], diffuse[3], ambient[3];
+} SpherePass;
+
+static void planet_sphere_pass(const void *data)
+{
+	const SpherePass *p = data;
+	glUseProgram(sphere_prog);
+	glUniform4fv(us.rect, 1, p->rect);
+	glUniform4fv(us.proj, 1, p->proj);
+	glUniform3fv(us.centre, 1, p->centre);
+	glUniform1f(us.c, p->c);
+	glUniform3fv(us.light_dir, 1, p->light);
+	glUniform3fv(us.diffuse, 1, p->diffuse);
+	glUniform3fv(us.ambient, 1, p->ambient);
+	glBindVertexArray(quad_vao);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
+/* NDC rectangle covering the sphere: the projected corners of its bounding
+ * cube. Falls back to the whole view if any corner is at or behind the
+ * camera. Returns false if the planet is entirely off screen. */
+static bool screen_rect(const PlanetDesc *p, float rect[4])
+{
+	const mat4 *pr = gd_projection();
+	float r = p->radius * 1.01f;
+	float x0 = 1e30f, y0 = 1e30f, x1 = -1e30f, y1 = -1e30f;
+	for (int i = 0; i < 8; i++)
+	{
+		float c[3] = {p->pos.x + ((i & 1) ? r : -r), p->pos.y + ((i & 2) ? r : -r),
+					  p->pos.z + ((i & 4) ? r : -r)};
+		float clip[4];
+		mat4_xform(pr, c[0], c[1], c[2], clip);
+		if (clip[3] <= 1e-3f * fabsf(c[2]) || c[2] >= 0.0f)
+		{
+			rect[0] = rect[1] = -1.0f;
+			rect[2] = rect[3] = 1.0f;
+			return true;
+		}
+		float x = clip[0] / clip[3], y = clip[1] / clip[3];
+		x0 = fminf(x0, x);
+		y0 = fminf(y0, y);
+		x1 = fmaxf(x1, x);
+		y1 = fmaxf(y1, y);
+	}
+	rect[0] = fmaxf(x0, -1.0f);
+	rect[1] = fmaxf(y0, -1.0f);
+	rect[2] = fminf(x1, 1.0f);
+	rect[3] = fminf(y1, 1.0f);
+	return rect[0] < rect[2] && rect[1] < rect[3];
+}
+
+static int table_colour(int code, const void *ctx)
+{
+	return ((const int16_t *)ctx)[(code >> 2) & 15] & 0xfff;
+}
+
+/* Draws the planet exactly as the game's software renderer would, from its
+ * 2D shape list: outline, shading bands, surface features and, close up,
+ * the ground with the horizon where the game puts it. */
+static void draw_list(const PlanetDesc *p)
+{
+	fill2d_begin();
+	for (int i = 0; i < p->list_len;)
+	{
+		const int16_t *a = &p->list[i + 1];
+		switch (p->list[i])
+		{
+		case PL_START:
+			fill2d_begin();
+			i += 1;
+			break;
+		case PL_LINE:
+			fill2d_line(a[0], a[1], a[2], a[3], a[4]);
+			i += 6;
+			break;
+		case PL_BEZIER:
+			fill2d_bezier(a, a[8]);
+			i += 10;
+			break;
+		case PL_ROW:
+			fill2d_row_code(a[0], a[1]);
+			i += 3;
+			break;
+		case PL_COLOURS:
+			fill2d_draw(FILL2D_PLANET, table_colour, a);
+			i += 17;
+			break;
+		default:
+			return;
+		}
+	}
+}
+
+void draw_planet(const void *payload)
+{
+	const PlanetDesc *p = payload;
+	if (p->radius <= 0.0f)
+		return;
+
+	if (p->list_ok)
+	{
+		draw_list(p);
+		return;
+	}
+
+	double r = p->radius;
+	double cx = p->pos.x / r, cy = p->pos.y / r, cz = p->pos.z / r;
+
+	float rect[4];
+	if (!screen_rect(p, rect))
+		return;
+
+	SpherePass *pass = gd_custom(planet_sphere_pass, sizeof *pass);
+	if (!pass)
+		return;
+	memcpy(pass->rect, rect, sizeof(rect));
+	const mat4 *pr = gd_projection();
+	pass->proj[0] = pr->m[0];
+	pass->proj[1] = pr->m[5];
+	pass->proj[2] = pr->m[8];
+	pass->proj[3] = pr->m[9];
+
+	pass->centre[0] = (float)cx;
+	pass->centre[1] = (float)cy;
+	pass->centre[2] = (float)cz;
+	pass->c = (float)(cx * cx + cy * cy + cz * cz - 1.0);
+
+	memcpy(pass->light, p->light, sizeof(pass->light));
+	vec3_normalize(pass->light);
+	gl_rgb444_to_f(p->light_col, pass->diffuse);
+	gl_rgb444_to_f(p->obj_col, pass->ambient);
+
+	/* Further planet passes (features) go here, in draw order. The sphere
+	 * shader has the surface point n = t*d - centre; rotating it by p->rot
+	 * gives planet-local coordinates for texturing. */
+}

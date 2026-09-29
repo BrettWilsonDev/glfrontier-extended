@@ -1,122 +1,126 @@
+/*
+ * main.c - start up, the SDL event loop and logging.
+ */
+#include <signal.h>
 #include <time.h>
-#include <signal.h>
-#include <signal.h>
 
 #include <SDL.h>
 
 #include "main.h"
+#include "settings.h"
 #include "audio.h"
-#include "../m68000.h"
+#include "freecam.h"
+#include "m68000.h"
 #include "hostcall.h"
 #include "input.h"
 #include "keymap.h"
+#include "custom_ships.h"
 #include "renderer.h"
-#include "shortcut.h"
-
 #include "touch_input.h"
-
-#include "nuklear_impl.h"
-#ifdef WITH_GL
-#include "nuklear_sdl_gl3_impl.h"
-#else
-#include "nuklear_sdl_impl.h"
-#endif
-
-// #include "glad/glad.h"
-
-#define FORCE_WORKING_DIR /* Set default directory to cwd */
-
-BOOL bQuitProgram = FALSE; /* Flag to quit program cleanly */
-BOOL bUseFullscreen = FALSE;
-BOOL bEmulationActive = TRUE; /* Run emulation when started */
-BOOL bAppActive = FALSE;
-char szBootDiscImage[MAX_FILENAME_LENGTH] = {""};
-
-char szWorkingDir[MAX_FILENAME_LENGTH] = {""};
-char szCurrentDir[MAX_FILENAME_LENGTH] = {""};
-
-bool toggle_right_click = FALSE; // used to toggle the mouse grab
-bool toggle_touch_controls = FALSE;
-bool toggle_m68k_menu = FALSE;
-// bool toggle_m68k_menu = TRUE;
-int dump_m68k_toggle = 0;
-bool toggle_fps_draw = FALSE;
-
-int emulation_speed = 20;
-
-char *clslog = NULL;
-static size_t clslog_size = 0;
+#include "ui/ui.h"
 
 #ifdef ANDROID
 #include <android/log.h>
-#define LOG_TAG "FE2"
 #endif
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
+BOOL bQuitProgram = FALSE;
+BOOL bEmulationActive = TRUE;
+char szBootDiscImage[MAX_FILENAME_LENGTH] = {""};
+char szWorkingDir[MAX_FILENAME_LENGTH] = {""};
+char szCurrentDir[MAX_FILENAME_LENGTH] = {""};
+
+static bool use_fullscreen;
+static bool right_button_held; /* Ctrl-M toggles a held right button */
+
+bool toggle_touch_controls = false;
+bool toggle_m68k_menu = false;
+bool toggle_fps_draw = false;
+bool toggle_debug_draw = false;
+int dump_m68k_toggle = 0;
+int emulation_speed = 20;
+
+/* =========================================================================
+ * Logging
+ * ========================================================================= */
+#define CLSLOG_MAX (256 * 1024) /* keep the console log bounded */
+
+char *clslog = NULL;
+static size_t clslog_len, clslog_cap;
+
+static void clslog_append(const char *text, size_t len)
+{
+	if (clslog_len + len + 2 > CLSLOG_MAX)
+		clslog_len = 0; /* start over rather than grow forever */
+	if (clslog_len + len + 2 > clslog_cap)
+	{
+		size_t cap = clslog_cap ? clslog_cap : 4096;
+		while (cap < clslog_len + len + 2)
+			cap *= 2;
+		char *p = realloc(clslog, cap);
+		if (!p)
+			return;
+		clslog = p;
+		clslog_cap = cap;
+	}
+	memcpy(clslog + clslog_len, text, len);
+	clslog_len += len;
+	clslog[clslog_len++] = '\n';
+	clslog[clslog_len] = '\0';
+}
 
 void log_printf(const char *fmt, ...)
 {
+	char buf[1024];
+	size_t time_len = 0;
+	time_t now = time(NULL);
+	struct tm tm_now;
+	int have_tm;
 	va_list args;
-	va_start(args, fmt);
-	va_list args_copy;
-	va_copy(args_copy, args);
-	vprintf(fmt, args);
+	int n;
+	size_t total_len;
 
-#ifdef ANDROID
-	va_list args_logcat;
-	va_copy(args_logcat, args_copy);
-	__android_log_vprint(ANDROID_LOG_INFO, LOG_TAG, fmt, args_logcat);
-	va_end(args_logcat);
-#endif
-
-	static char log_buffer[1024];
-	vsnprintf(log_buffer, sizeof(log_buffer), fmt, args_copy);
-	va_end(args_copy);
-	va_end(args);
-
-	size_t message_len = strlen(log_buffer);
-	size_t new_size = clslog_size + message_len + 2;
-	char *new_clslog = realloc(clslog, new_size);
-	if (!new_clslog)
+	/* Thread-safe localtime; each toolchain spells it differently. */
+#if defined(_MSC_VER)
+	have_tm = (localtime_s(&tm_now, &now) == 0);
+#elif defined(_WIN32)
 	{
-		printf("Error: unable to allocate memory for clslog\n");
-		return;
+		/* MinGW: CRT localtime() is already per-thread. */
+		struct tm *t = localtime(&now);
+		have_tm = (t != NULL);
+		if (have_tm)
+			tm_now = *t;
 	}
-	clslog = new_clslog;
-	if (clslog_size == 0)
-		clslog[0] = '\0';
-	strcat(clslog, log_buffer);
-	strcat(clslog, "\n");
-	clslog_size = new_size;
+#else
+	have_tm = (localtime_r(&now, &tm_now) != NULL);
+#endif
+	/* "HH:MM:SS: " prefix; log without it if the time is unavailable. */
+	if (have_tm)
+		time_len = strftime(buf, sizeof(buf), "%H:%M:%S: ", &tm_now);
+
+	va_start(args, fmt);
+	n = vsnprintf(buf + time_len, sizeof(buf) - time_len, fmt, args);
+	va_end(args);
+	if (n < 0)
+		return;
+
+	total_len = time_len + (size_t)n;
+	if (total_len >= sizeof(buf))
+		total_len = sizeof(buf) - 1;
+
+	fputs(buf, stdout);
+	fflush(stdout); /* keep the log when the game is killed or crashes */
+#ifdef ANDROID
+	__android_log_write(ANDROID_LOG_INFO, "FE2", buf);
+#endif
+	clslog_append(buf, total_len);
 }
 
-/*-----------------------------------------------------------------------*/
-/*
-  Error handler
-*/
-void Main_SysError(char *Error, char *Title)
-{
-	// log_printf(stderr, "%s : %s\n", Title, Error);
-	log_printf("%s : %s\n", Title, Error);
-}
-
-/*-----------------------------------------------------------------------*/
-/*
-  Bring up message(handles full-screen as well as Window)
-*/
-int Main_Message(char *lpText, char *lpCaption /*,unsigned int uType*/)
-{
-	int Ret = 0;
-
-	/* Show message */
-	// log_printf(stderr, "%s: %s\n", lpCaption, lpText);
-	log_printf("%s: %s\n", lpCaption, lpText);
-
-	return (Ret);
-}
-
-/*-----------------------------------------------------------------------*/
-/*
-  Pause emulation, stop sound
-*/
+/* =========================================================================
+ * Emulation control
+ * ========================================================================= */
 void Main_PauseEmulation(void)
 {
 	if (bEmulationActive)
@@ -126,10 +130,6 @@ void Main_PauseEmulation(void)
 	}
 }
 
-/*-----------------------------------------------------------------------*/
-/*
-  Start emulation
-*/
 void Main_UnPauseEmulation(void)
 {
 	if (!bEmulationActive)
@@ -139,73 +139,68 @@ void Main_UnPauseEmulation(void)
 	}
 }
 
+/* =========================================================================
+ * Events
+ * ========================================================================= */
 
-int hit_region_clicked(SDL_Event *event, int x1, int y1, int x2, int y2)
+/* Is the click inside (x1,y1)-(x2,y2) in 320x240 game coordinates? */
+static bool hit_region_clicked(const SDL_Event *event, int x1, int y1, int x2, int y2)
 {
-    int lb_ox = Screen_GetGameOffsetX();
-    int lb_oy = Screen_GetGameOffsetY();
-    int lb_h  = Screen_GetGameHeight();
-    int lb_w  = Screen_GetGameWidth();
-
-    int gx = 320 * (event->button.x - lb_ox) / lb_w;
-    int gy = 240 * (event->button.y - lb_oy) / lb_h;
-
-    return gx >= x1 && gx <= x2 && gy >= y1 && gy <= y2;
+	int gw = Screen_GetGameWidth(), gh = Screen_GetGameHeight();
+	if (gw <= 0 || gh <= 0)
+		return false;
+	int gx = 320 * (event->button.x - Screen_GetGameOffsetX()) / gw;
+	int gy = 240 * (event->button.y - Screen_GetGameOffsetY()) / gh;
+	return gx >= x1 && gx <= x2 && gy >= y1 && gy <= y2;
 }
 
-/* Hacky fix for the system map view left click glitch in the original game.
- * Hit test is done in game coords (0..320, 0..240) so it works at any
- * window size with no offset/scale fiddling. */
-static int systemview_button(SDL_Event *event)
+/* Work around the original game's system map left click glitch: the
+ * system view icon sends F2 instead. */
+static bool systemview_button(const SDL_Event *event)
 {
-	if (event->button.button != SDL_BUTTON_LEFT)
-		return 0;
-
-	if (hit_region_clicked(event, 18, 226, 31, 240))
-	{
-		SDL_Keysym sdlkey = {.scancode = SDL_SCANCODE_F2, .sym = SDLK_F2};
-		Keymap_KeyDown(&sdlkey);
-		Keymap_KeyUp(&sdlkey);
-		return 1;
-	}
-	return 0;
+	if (event->button.button != SDL_BUTTON_LEFT || !hit_region_clicked(event, 18, 226, 31, 240))
+		return false;
+	SDL_Keysym key = {.scancode = SDL_SCANCODE_F2, .sym = SDLK_F2};
+	Keymap_KeyDown(&key);
+	Keymap_KeyUp(&key);
+	return true;
 }
 
-static int settings_button(SDL_Event *event)
+/* The small cog in the top left corner opens the menu */
+static bool settings_button(const SDL_Event *event)
 {
-	if (event->button.button != SDL_BUTTON_LEFT)
-		return 0;
-
-	if (hit_region_clicked(event, 0, 0, 10, 14))
-	{
-		toggle_m68k_menu = !toggle_m68k_menu;
-		return 1;
-	}
-	return 0;
+	if (event->button.button != SDL_BUTTON_LEFT || !hit_region_clicked(event, 0, 0, 10, 14))
+		return false;
+	toggle_m68k_menu = !toggle_m68k_menu;
+	return true;
 }
 
-/* ----------------------------------------------------------------------- */
-/*
-  Message handler
-  Here we process the SDL events (keyboard, mouse, ...) and map it to
-  Atari IKBD events.
-*/
+static bool ctrl_held(const SDL_Event *event)
+{
+	return (event->key.keysym.mod & (KMOD_LCTRL | KMOD_RCTRL)) != 0;
+}
+
+/* Reads SDL events and passes them to the menu, the touch controls or the
+ * emulated keyboard / mouse. */
 void Main_EventHandler(void)
 {
 	SDL_Event event;
-#ifdef USE_NK
-	nk_input_begin(nk_ctx);
-#endif
-
 	while (SDL_PollEvent(&event))
 	{
-#ifdef USE_NK
-		nk_sdl_handle_event(&event);
-#endif
+		/* Ctrl-F toggles the menu even when the menu has focus */
+		if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_f && ctrl_held(&event))
+		{
+			toggle_m68k_menu = !toggle_m68k_menu;
+			continue;
+		}
+		if (ui_handle_event(&event))
+			continue;
+		/* ImGui wants window units; everything below lays out in pixels */
+		Screen_MouseToPixels(&event);
+		if (freecam_handle_event(&event))
+			continue;
 
-		if ((event.type == SDL_FINGERDOWN ||
-			 event.type == SDL_FINGERUP ||
-			 event.type == SDL_FINGERMOTION) &&
+		if ((event.type == SDL_FINGERDOWN || event.type == SDL_FINGERUP || event.type == SDL_FINGERMOTION) &&
 			!toggle_touch_controls)
 			toggle_touch_controls = 1;
 
@@ -227,9 +222,7 @@ void Main_EventHandler(void)
 			if (event.window.event == SDL_WINDOWEVENT_RESIZED ||
 				event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
 			{
-				screen_w = event.window.data1;
-				screen_h = event.window.data2;
-				call_update_letterbox();
+				Screen_SyncSize(); /* data1/data2 are window units, not pixels */
 			}
 			break;
 
@@ -244,20 +237,10 @@ void Main_EventHandler(void)
 		case SDL_MOUSEBUTTONDOWN:
 			input.abs_x = event.button.x;
 			input.abs_y = event.button.y;
-
-			if (!toggle_touch_controls && !toggle_m68k_menu)
-			{
-				if (settings_button(&event))
-				{
-					break;
-				}
-			}
-
-			if (!systemview_button(&event))
-			{
-				Input_MousePress(event.button.button);
+			if (!toggle_touch_controls && !toggle_m68k_menu && settings_button(&event))
 				break;
-			}
+			if (!systemview_button(&event))
+				Input_MousePress(event.button.button);
 			break;
 
 		case SDL_MOUSEBUTTONUP:
@@ -267,18 +250,14 @@ void Main_EventHandler(void)
 			break;
 
 		case SDL_KEYDOWN:
-			if (event.key.keysym.sym == SDLK_m &&
-				(event.key.keysym.mod & (KMOD_LCTRL | KMOD_RCTRL)))
+			if (event.key.keysym.sym == SDLK_m && ctrl_held(&event))
 			{
-				toggle_right_click = !toggle_right_click;
-				if (toggle_right_click)
+				right_button_held = !right_button_held;
+				if (right_button_held)
 					Input_MousePress(SDL_BUTTON_RIGHT);
 				else
 					Input_MouseRelease(SDL_BUTTON_RIGHT);
 			}
-			if (event.key.keysym.sym == SDLK_f &&
-				(event.key.keysym.mod & (KMOD_LCTRL | KMOD_RCTRL)))
-				toggle_m68k_menu = !toggle_m68k_menu;
 			Keymap_KeyDown(&event.key.keysym);
 			break;
 
@@ -287,109 +266,82 @@ void Main_EventHandler(void)
 			break;
 		}
 	}
-
-#ifdef USE_NK
-	nk_input_end(nk_ctx);
-#endif
-	Input_Update();
+	if (toggle_touch_controls)
+		touch_input_tick();
+	settings_poll(); /* writes glfrontier.cfg if a setting changed */
 }
-/*-----------------------------------------------------------------------*/
-/*
-  Check for any passed parameters
-*/
-void Main_ReadParameters(int argc, char *argv[])
-{
-	int i;
 
-	/* Scan for any which we can use */
-	for (i = 1; i < argc; i++)
+/* =========================================================================
+ * Start up / shut down
+ * ========================================================================= */
+static void read_parameters(int argc, char *argv[])
+{
+	for (int i = 1; i < argc; i++)
 	{
-		if (strlen(argv[i]) > 0)
+		if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
 		{
-			if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
-			{
-				printf("Usage:\n frontier [options]\n"
-					   "Where options are:\n"
-					   "  --help or -h          Print this help text and exit.\n"
-					   "  --fullscreen or -f    Try to use fullscreen mode.\n"
-					   "  --nosound             Disable sound (faster!).\n"
-					   "  --size w h            Start at specified window size.\n");
-				exit(0);
-			}
-			else if (!strcmp(argv[i], "--fullscreen") || !strcmp(argv[i], "-f"))
-			{
-				bUseFullscreen = TRUE;
-			}
-			else if (!strcmp(argv[i], "--nosound"))
-			{
-				bDisableSound = TRUE;
-			}
-			else if (!strcmp(argv[i], "--size"))
-			{
-				screen_h = 0;
-				if (++i < argc)
-					screen_w = atoi(argv[i]);
-				if (++i < argc)
-					screen_h = atoi(argv[i]);
-				/* fe2 likes 1.6 aspect ratio until i fix the mouse position
-				 * to 3d object position code... */
-				if (screen_h == 0)
-					screen_h = 5 * screen_w / 8;
-			}
-			else
-			{
-				/* some time make it possible to read alternative
-				 * names for fe2.bin from command line */
-				fprintf(stderr, "Illegal parameter: %s\n", argv[i]);
-			}
+			printf("Usage:\n frontier [options]\n"
+				   "Where options are:\n"
+				   "  --help or -h          Print this help text and exit.\n"
+				   "  --fullscreen or -f    Try to use fullscreen mode.\n"
+				   "  --nosound             Disable sound (faster!).\n"
+				   "  --size w h            Start at specified window size.\n");
+			exit(0);
+		}
+		else if (!strcmp(argv[i], "--fullscreen") || !strcmp(argv[i], "-f"))
+		{
+			use_fullscreen = true;
+		}
+		else if (!strcmp(argv[i], "--nosound"))
+		{
+			bDisableSound = TRUE;
+		}
+		else if (!strcmp(argv[i], "--size"))
+		{
+			screen_h = 0;
+			if (++i < argc)
+				screen_w = atoi(argv[i]);
+			if (++i < argc)
+				screen_h = atoi(argv[i]);
+			if (screen_h == 0)
+				screen_h = 5 * screen_w / 8; /* the game likes 16:10 */
+		}
+		else if (argv[i][0])
+		{
+			fprintf(stderr, "Illegal parameter: %s\n", argv[i]);
 		}
 	}
 }
 
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
-
-/*-----------------------------------------------------------------------*/
-/*
-  Initialise emulation
-*/
-void Main_Init(void)
+static void main_init(void)
 {
 #ifdef __EMSCRIPTEN__
-	// EM_ASM(
-	// 	FS.mkdir('/saves');
-	// 	FS.mount(IDBFS, {}, '/saves');
-	// 	FS.syncfs(true, function(err) {
-	//         if (err) console.log('FS init error:', err); }););
-
+	/* Persistent save directory, backed by IndexedDB */
+	/* clang-format off */
 	EM_ASM(
-		// Create the saves directory
 		FS.mkdir('/saves');
-
-		// Mount IDBFS to the saves directory for persistence
 		FS.mount(IDBFS, {}, '/saves');
-
-		// Sync from IndexedDB to populate existing saves
 		FS.syncfs(true, function(err) {
-            if (err) {
-                console.log('FS init error:', err);
-            } else {
-                console.log('Save data loaded from persistent storage');
-            } }););
+			if (err)
+				console.log('FS init error:', err);
+			else
+				console.log('Save data loaded from persistent storage');
+		}););
+	/* clang-format on */
 #endif
 
-	/* Init SDL's video subsystem. Note: Audio and joystick subsystems
-	   will be initialized later (failures there are not fatal). */
+	/* audio is initialised later; failing there is not fatal */
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0)
 	{
-		// log_printf(stderr, "Could not initialize the SDL library:\n %s\n", SDL_GetError());
 		log_printf("Could not initialize the SDL library:\n %s\n", SDL_GetError());
 		exit(-1);
 	}
 
 	Screen_Init();
-	Init680x0(); /* Init CPU emulation */
+	Init680x0();
+#if FE2_USE_MODDED
+	custom_ships_install(); /* tools/fe2ShipBuilder/custom_ships/NNN.fe2m, see custom_ships.h */
+#endif
 	Audio_Init();
 	Keymap_Init();
 
@@ -400,69 +352,47 @@ void Main_Init(void)
 	}
 }
 
-/*-----------------------------------------------------------------------*/
-/*
-  Un-Initialise emulation
-*/
-void Main_UnInit(void)
+static void main_uninit(void)
 {
 	Audio_UnInit();
 	Screen_UnInit();
-
-	/* SDL uninit: */
 	SDL_Quit();
 }
 
+/* The emulated VBL interrupt; drives the game at emulation_speed ms */
 static Uint32 vbl_callback(Uint32 interval, void *param)
 {
-	interval = emulation_speed;
-
+	(void)interval;
+	(void)param;
 	FlagException(0);
-	return interval;
+	return (Uint32)emulation_speed;
 }
 
-void sig_handler(int signum)
+static void sig_handler(int signum)
 {
 	if (signum == SIGSEGV)
 	{
 		log_printf("Segfault! All is lost! Abandon ship!\n");
 		Call_DumpDebug();
-		// abort();
 	}
 }
 
-/*-----------------------------------------------------------------------*/
-/*
-  Main
-*/
 int main(int argc, char *argv[])
 {
 	signal(SIGSEGV, sig_handler);
-
-	/* Generate random seed */
-	srand(time(NULL));
-
-	/* Check for any passed parameters */
-	Main_ReadParameters(argc, argv);
-
+	srand((unsigned)time(NULL));
+	read_parameters(argc, argv);
 	log_printf("Logger started: %s\n", __TIME__);
 
-	/* Init emulator system */
-	Main_Init();
-
-	/* Switch immediately to fullscreen if user wants to */
-	if (bUseFullscreen)
+	main_init();
+	settings_load(); /* glfrontier.cfg: the settings from last time */
+	if (use_fullscreen && !bInFullScreen)
 		Screen_ToggleFullScreen();
 
-	// acts as a game loop of sorts 20ms is the speed of the original game
 	SDL_AddTimer(20, &vbl_callback, NULL);
-
-	/* Run emulation */
 	Main_UnPauseEmulation();
-	Start680x0(); /* Start emulation */
+	Start680x0(); /* runs until the game quits */
 
-	/* Un-init emulation system */
-	Main_UnInit();
-
-	return (0);
+	main_uninit();
+	return 0;
 }

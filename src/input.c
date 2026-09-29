@@ -1,67 +1,48 @@
-#include <SDL_endian.h>
-#include <SDL_mouse.h>
+/*
+ * input.c - keyboard queue and mouse state, read by the game through host
+ * calls.
+ */
+#include <SDL.h>
 
-#include "main.h"
 #include "input.h"
-#include "../m68000.h"
-#include "shortcut.h"
+#include "m68000.h"
+#include "main.h"
 #include "renderer.h"
 
 CINPUT input;
 
-void Call_GetMouseInput()
+/* Host call: fills the game's mouse structures (big endian words)
+ *   A7+2: motion x, motion y, buttons
+ *   A7+6: absolute x, y in 320x200 screen coordinates */
+void Call_GetMouseInput(void)
 {
-	short *mouse_mov, *mouse_abs;
-	unsigned long params;
+	unsigned long params = GetReg(REG_A7) - SIZE_WORD;
+	short *mouse_mov = (short *)(STRam + STMemory_ReadLong(params + SIZE_WORD));
+	short *mouse_abs = (short *)(STRam + STMemory_ReadLong(params + SIZE_WORD + SIZE_LONG));
 
-	params = GetReg(REG_A7);
-	params -= SIZE_WORD;
-	/* Pointer passed to struct:
-	 *   word mouse_motion_x
-	 *   word mouse_motion_y
-	 *   word mouse_buttons
-	 */
-
-	mouse_mov = (short *)(STRam + STMemory_ReadLong(params + SIZE_WORD));
-	mouse_abs = (short *)(STRam + STMemory_ReadLong(params + SIZE_WORD + SIZE_LONG));
-
-	if ((abs(input.motion_x) > 100) || (abs(input.motion_y) > 100))
-	{
-		// printf ("That  input bug! %d,%d\n", input.motion_x, input.motion_y);
+	/* SDL occasionally reports a huge jump (e.g. when grabbing the mouse) */
+	if (abs(input.motion_x) > 100 || abs(input.motion_y) > 100)
 		input.motion_x = input.motion_y = 0;
-	}
 
 	mouse_mov[0] = SDL_SwapBE16(SDL_SwapBE16(mouse_mov[0]) + input.motion_x);
 	mouse_mov[1] = SDL_SwapBE16(SDL_SwapBE16(mouse_mov[1]) + input.motion_y);
-
-	/* Map physical pixel position into game coords (0..320, 0..200).
-	 * Must subtract the letterbox offset and scale by the game area size,
-	 * not the full window size. Screen_GetGameOffset/Height come from
-	 * rendererGL and account for the letterbox rect. */
-	int lb_ox = Screen_GetGameOffsetX();
-	int lb_oy = Screen_GetGameOffsetY();  /* SDL top-left origin */
-	int lb_h  = Screen_GetGameHeight();
-	int lb_w  = Screen_GetGameWidth();
-
-	int rel_x = input.abs_x - lb_ox;
-	int rel_y = input.abs_y - lb_oy;
-
-	mouse_abs[0] = SDL_SwapBE16(320 * rel_x / lb_w);
-	mouse_abs[1] = SDL_SwapBE16(200 * rel_y / lb_h);
-
-	// if (input.mbuf_head != input.mbuf_tail) {
-	//	mouse_mov[2] = SDL_SwapBE16 (0xf8 | input.mousebut_buf [input.mbuf_head++]);
-	//	input.mbuf_head %= SIZE_KEYBUF;
-	// } else {
 	mouse_mov[2] = SDL_SwapBE16(0xf8 | input.cur_mousebut_state);
-	//}
+
+	/* window pixels -> game screen, inside the letterboxed game area */
+	int gw = Screen_GetGameWidth(), gh = Screen_GetGameHeight();
+	if (gw > 0 && gh > 0)
+	{
+		mouse_abs[0] = SDL_SwapBE16(320 * (input.abs_x - Screen_GetGameOffsetX()) / gw);
+		mouse_abs[1] = SDL_SwapBE16(200 * (input.abs_y - Screen_GetGameOffsetY()) / gh);
+	}
 
 	input.motion_x = input.motion_y = 0;
 }
 
-void Call_GetKeyboardEvent()
+/* Host call: next queued ST scancode in D0, or 0 */
+void Call_GetKeyboardEvent(void)
 {
-	if ((input.buf_head) != (input.buf_tail))
+	if (input.buf_head != input.buf_tail)
 	{
 		SetReg(REG_D0, input.key_buf[input.buf_head++]);
 		input.buf_head %= SIZE_KEYBUF;
@@ -72,65 +53,39 @@ void Call_GetKeyboardEvent()
 	}
 }
 
-/* Interrupt as required */
-void Input_Update()
+void Input_PressSTKey(unsigned char scancode, BOOL press)
 {
-	if ((input.buf_head != input.buf_tail) ||
-		(input.motion_x) ||
-		(input.motion_y) ||
-		(input.mbuf_head != input.mbuf_tail))
-	{
-		// FlagException (1);
-	}
-}
-
-void Input_PressSTKey(unsigned char ScanCode, BOOL bPress)
-{
-	if (!bPress)
-		ScanCode |= 0x80;
-	input.key_buf[input.buf_tail++] = ScanCode;
+	if (!press)
+		scancode |= 0x80;
+	input.key_buf[input.buf_tail++] = scancode;
 	input.buf_tail %= SIZE_KEYBUF;
 }
 
-static void do_mouse_grab()
+/* While the right button is held the game steers with the mouse, so
+ * capture it */
+static void update_mouse_grab(void)
 {
-	/* grab mouse on right-button hold for correct controls */
-	if (input.cur_mousebut_state & 0x1)
-	{
-		SDL_SetRelativeMouseMode(SDL_TRUE);
-	}
-	else
-	{
-		SDL_SetRelativeMouseMode(SDL_FALSE);
-	}
+	SDL_SetRelativeMouseMode((input.cur_mousebut_state & 0x1) ? SDL_TRUE : SDL_FALSE);
 }
 
-void Input_MousePress(int button)
+void Input_MousePress(int sdl_button)
 {
-	if (button == SDL_BUTTON_RIGHT)
+	if (sdl_button == SDL_BUTTON_RIGHT)
 		input.cur_mousebut_state |= 0x1;
-	else if (button == SDL_BUTTON_LEFT)
+	else if (sdl_button == SDL_BUTTON_LEFT)
 		input.cur_mousebut_state |= 0x2;
 	else
-	{
 		return;
-	}
-	do_mouse_grab();
-
-	input.mousebut_buf[input.mbuf_tail++] = input.cur_mousebut_state;
-	input.mbuf_tail %= SIZE_MOUSEBUF;
+	update_mouse_grab();
 }
 
-void Input_MouseRelease(int button)
+void Input_MouseRelease(int sdl_button)
 {
-	if (button == SDL_BUTTON_RIGHT)
+	if (sdl_button == SDL_BUTTON_RIGHT)
 		input.cur_mousebut_state &= ~0x1;
-	else if (button == SDL_BUTTON_LEFT)
+	else if (sdl_button == SDL_BUTTON_LEFT)
 		input.cur_mousebut_state &= ~0x2;
 	else
 		return;
-	input.mousebut_buf[input.mbuf_tail++] = input.cur_mousebut_state;
-	input.mbuf_tail %= SIZE_MOUSEBUF;
-
-	do_mouse_grab();
+	update_mouse_grab();
 }

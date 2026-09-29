@@ -1,0 +1,17 @@
+# Style for the hand-written sources in src/. Leave fe2_modded.s.c (generated from
+# the 68k code) and the embedded data headers alone.
+BasedOnStyle: LLVM
+UseTab: ForContinuationAndIndentation
+IndentWidth: 4
+TabWidth: 4
+BreakBeforeBraces: Allman
+ColumnLimit: 110
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AlignConsecutiveMacros: true
+AlignTrailingComments: true
+IndentCaseLabels: false
+PointerAlignment: Right
+SortIncludes: false
+IndentExternBlock: NoIndent

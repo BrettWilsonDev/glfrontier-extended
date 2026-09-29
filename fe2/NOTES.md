@@ -29,7 +29,7 @@ extern union Reg Regs[16];
 
 ---
 
-### Notes on Potential Save Data Location in M68K RAM (`fe2.s.c`)
+### Notes on Potential Save Data Location in M68K RAM (`fe2_modded.s.c`)
 
 #### Observations
 
@@ -62,7 +62,7 @@ the fact that `Regs[10]` changes and reflects both encrypted and unencrypted sav
 
 ---
 
-#### you can comment out the below in `fe2.s.c` and the save data will be saved **unencrypted** upon saving  
+#### you can comment out the below in `fe2_modded.s.c` and the save data will be saved **unencrypted** upon saving  
 however, loading the save will fail.
 
 ```c
@@ -665,3 +665,31 @@ static inline void dump_all_m68k_ram()
 ### To find the current first person view from memory
 
 A strong candidate is at -36 from the current player's ship memory block. Use the ship ID finder address method. 128 0 128 which is always present when there are no obstacles blocking the view of the ship.
+---
+
+### Game state used by the host (from `fe2_modded.s`)
+
+The game keeps its globals at offsets from A6, which points at
+`L5eb6_a6_base` (`0x15e` in the translated build). `src/game_state.c` and
+`src/cheats.c` read these; the old absolute address `1072` for the player
+block is `A6+722`.
+
+| A6 offset | size | meaning |
+|---|---|---|
+| 6 | word | screen owner module: 0 none/title, 16 galaxy map, 24 flight view, 40 system map, 80 options/load/save, 96 station services, 112 ship screen (set by `L45318`, `jsr 66(a5)`) |
+| 674 | long | player's ship object |
+| 704 | byte | flight status: $04 autopilot, $48 take-off, $54 docked, $60 landed, $68 landed rough, else manual |
+| 705 | byte | bit 0 engines off |
+| 706 | byte | `A6_plr_3dview_mode`: 0 front, 1 rear, 2 top turret, 3 bottom turret, 4 external |
+| 734 | long | cash, tenths of a credit |
+| 738 / 742 | word | cargo space left after equipment / cargo carried (tonnes) |
+| 754 | word x31 | cargo per commodity, Water first |
+| 824 | long | elite rating points (thresholds `L7e87a`) |
+| 828 / 830 | word | federal / imperial rank points (thresholds `L7e8b0`) |
+| 13328-13336 | long x3 | legal status points per authority, 0 = Clean |
+
+Player ship object: +90 model, +158 equipment bits, +162 damaged bits,
++166 drive, +167 gun mountings, +168 laser per mounting, +172 missile per
+pylon, +180/+182 shields (64 per generator), +184 hull, +242 drive fuel
+($20000000 per tonne). The shipyard's list (`L7655c`) gives mass, kind and
+the value each item stores.
