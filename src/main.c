@@ -18,6 +18,7 @@
 #include "renderer.h"
 #include "touch_input.h"
 #include "ui/ui.h"
+#include "user_dir.h"
 
 #ifdef ANDROID
 #include <android/log.h>
@@ -385,6 +386,9 @@ int main(int argc, char *argv[])
 	log_printf("Logger started: %s\n", __TIME__);
 
 	main_init();
+#if !defined(__EMSCRIPTEN__) && !defined(ANDROID)
+	user_dirs_init(); /* Documents\My Games\GLFrontier, ~/.local/share/glfrontier, ... */
+#endif
 	settings_load(); /* glfrontier.cfg: the settings from last time */
 	if (use_fullscreen && !bInFullScreen)
 		Screen_ToggleFullScreen();

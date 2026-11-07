@@ -17,55 +17,26 @@ if(MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
-include(FetchContent)
-function(add_git_dependency name url tag)
-    FetchContent_Declare(${name}
-        GIT_REPOSITORY ${url}
-        GIT_TAG ${tag}
-        GIT_SHALLOW TRUE
-        GIT_PROGRESS TRUE
-    )
-    FetchContent_MakeAvailable(${name})
-endfunction()
+# SDL2, glad and imgui come from vendor/ (nothing is downloaded)
+include(${GLF_ROOT}/cmake/GlfDeps.cmake)
 
 # SDL2 (static, only what the studio uses)
 set(BUILD_SHARED_LIBS OFF)
 foreach(sub VIDEO EVENTS TIMERS THREADS CPUINFO ATOMIC)
     set(SDL_${sub} ON CACHE BOOL "" FORCE)
 endforeach()
-foreach(sub AUDIO RENDER JOYSTICK HAPTIC SENSOR POWER FILE FILESYSTEM MISC TEST EXAMPLES DEMOS)
+foreach(sub AUDIO RENDER VULKAN OPENGLES JOYSTICK HAPTIC SENSOR POWER FILE FILESYSTEM MISC TEST EXAMPLES DEMOS)
     set(SDL_${sub} OFF CACHE BOOL "" FORCE)
 endforeach()
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
-add_git_dependency(SDL2 https://github.com/libsdl-org/SDL.git SDL2)
+glf_add_sdl2()
 
-# glad 1.x, OpenGL 3.3 core
-set(GLAD_PROFILE "core" CACHE STRING "OpenGL profile")
-set(GLAD_API "gl=" CACHE STRING "API type/version pairs, no version means latest")
-set(GLAD_GENERATOR "c" CACHE STRING "Language to generate the binding for")
-find_package(OpenGL REQUIRED)
-add_git_dependency(glad https://github.com/Dav1dde/glad.git v0.1.36)
+# glad: OpenGL 3.3 core
+glf_add_glad()
 
-# Dear ImGui, same version as the game
-FetchContent_Declare(imgui
-    GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG v1.91.9
-    GIT_SHALLOW TRUE
-)
-FetchContent_GetProperties(imgui)
-if(NOT imgui_POPULATED)
-    FetchContent_Populate(imgui)
-endif()
-add_library(imgui STATIC
-    ${imgui_SOURCE_DIR}/imgui.cpp
-    ${imgui_SOURCE_DIR}/imgui_draw.cpp
-    ${imgui_SOURCE_DIR}/imgui_tables.cpp
-    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
-)
-target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+# Dear ImGui, same copy as the game
+glf_add_imgui()
 target_link_libraries(imgui PUBLIC SDL2-static)
 
 file(GLOB STUDIO_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")

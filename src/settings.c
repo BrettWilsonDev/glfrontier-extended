@@ -3,7 +3,8 @@
  *
  * The file is plain "key=value" lines, unknown keys ignored, so it survives
  * settings being added or removed. Where it lives:
- *   desktop   glfrontier.cfg in the working directory (beside the saves)
+ *   desktop   user_config_dir(): Documents\My Games\GLFrontier on Windows,
+ *             ~/.config/glfrontier on Linux (see user_dir.h)
  *   Android   the app's internal storage
  *   web       not kept yet (the save folder is only ready asynchronously)
  */
@@ -20,6 +21,7 @@
 #include "renderer.h"
 #include "settings.h"
 #include "touch_input.h"
+#include "user_dir.h"
 
 #define FILE_NAME "glfrontier.cfg"
 
@@ -33,6 +35,10 @@ typedef struct
 	int vanilla_saves;
 	int emulation_speed;
 	int touch_pads_hidden;
+	int smoke_inherit;
+	int smoke_cap;
+	int mine_prox;
+	int mine_radius;
 } Settings;
 
 static const struct
@@ -48,6 +54,10 @@ static const struct
 	{"vanilla_saves", offsetof(Settings, vanilla_saves)},
 	{"emulation_speed", offsetof(Settings, emulation_speed)},
 	{"touch_pads_hidden", offsetof(Settings, touch_pads_hidden)},
+	{"smoke_inherit", offsetof(Settings, smoke_inherit)},
+	{"smoke_cap", offsetof(Settings, smoke_cap)},
+	{"mine_prox", offsetof(Settings, mine_prox)},
+	{"mine_radius", offsetof(Settings, mine_radius)},
 };
 #define N_FIELDS ((int)(sizeof(fields) / sizeof(fields[0])))
 
@@ -57,13 +67,22 @@ static bool loaded;
 #ifndef __EMSCRIPTEN__
 static const char *file_path(void)
 {
-	static char path[512];
+	static char path[1024];
 #ifdef ANDROID
 	snprintf(path, sizeof(path), "%s/%s", SDL_AndroidGetInternalStoragePath(), FILE_NAME);
 #else
-	snprintf(path, sizeof(path), "%s", FILE_NAME);
+	snprintf(path, sizeof(path), "%s%s", user_config_dir(), FILE_NAME);
 #endif
 	return path;
+}
+
+static FILE *settings_fopen(const char *path, const char *mode)
+{
+#ifdef ANDROID
+	return fopen(path, mode);
+#else
+	return user_fopen(path, mode); /* UTF-8 paths on Windows */
+#endif
 }
 #endif
 
@@ -83,6 +102,10 @@ static Settings current(void)
 	s.vanilla_saves = mods_vanilla_saves;
 	s.emulation_speed = emulation_speed;
 	s.touch_pads_hidden = touch_pads_hidden();
+	s.smoke_inherit = smoke_inherit;
+	s.smoke_cap = smoke_cap_ms;
+	s.mine_prox = mine_prox;
+	s.mine_radius = mine_radius_m;
 	return s;
 }
 
@@ -102,6 +125,12 @@ static void apply(const Settings *s)
 	if (s->emulation_speed >= 1 && s->emulation_speed <= 100)
 		emulation_speed = s->emulation_speed;
 	touch_set_pads_hidden(s->touch_pads_hidden != 0);
+	smoke_inherit = s->smoke_inherit != 0;
+	if (s->smoke_cap >= 10 && s->smoke_cap <= 2000)
+		smoke_cap_ms = s->smoke_cap;
+	mine_prox = s->mine_prox != 0;
+	if (s->mine_radius >= 10 && s->mine_radius <= 2000)
+		mine_radius_m = s->mine_radius;
 }
 
 void settings_load(void)
@@ -109,7 +138,7 @@ void settings_load(void)
 	Settings s = current(); /* defaults for anything the file lacks */
 	loaded = true;
 #ifndef __EMSCRIPTEN__
-	FILE *f = fopen(file_path(), "r");
+	FILE *f = settings_fopen(file_path(), "r");
 	if (f)
 	{
 		char line[128];
@@ -140,7 +169,7 @@ void settings_poll(void)
 		return;
 	saved = now;
 #ifndef __EMSCRIPTEN__
-	FILE *f = fopen(file_path(), "w");
+	FILE *f = settings_fopen(file_path(), "w");
 	if (!f)
 	{
 		log_printf("Could not write settings to %s\n", file_path());

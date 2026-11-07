@@ -38,6 +38,14 @@ void mods_strip_long(unsigned int addr, unsigned int value);
 void Call_ModsSaveBegin(void);
 void Call_ModsSaveEnd(void);
 
+/* Options of the game's bug fixes (host calls for Lsmoke_vel, Lmine_phys) */
+extern bool smoke_inherit;
+extern int smoke_cap_ms;
+extern bool mine_prox;
+extern int mine_radius_m;
+void Call_SmokeVel(void);
+void Call_MineRadius(void);
+
 #ifdef __cplusplus
 }
 #endif

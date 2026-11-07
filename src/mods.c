@@ -6,6 +6,8 @@
  * mods_strip_*() (which remembers the old bytes), the game builds the save
  * from that, and Call_ModsSaveEnd puts every byte back.
  */
+#include <math.h>
+
 #include "mods.h"
 #include "game_state.h"
 #include "host.h" /* rdbyte, wrbyte, ... */
@@ -148,6 +150,13 @@ static const GameMod mods[] = {
 	 "Ships of a new type (the player's too, and those for sale in the shipyards) become the original "
 	 "ship they are based on.",
 	 custom_ships_strip},
+	{"Original game bug fixes",
+	 "From the frontier-elite-vibes fork. Gravity doubling in low orbit; ships destroyed far out in orbit; "
+	 "\"Relative to\" never switching to a station; altitude shown from 2000 km over stars and gas giants; "
+	 "passengers past their month leaving at the next landing; police Vipers exploding on launch; proximity "
+	 "mines going off near a ship; pirates more often in groups; time acceleration stepping down as a ship "
+	 "closes in on you. Smoke and mine options are in the settings.",
+	 "A police ship's launch time, in a field the unmodded game does not use.", NULL},
 };
 #define MOD_COUNT ((int)(sizeof(mods) / sizeof(mods[0])))
 #else
@@ -190,4 +199,47 @@ void Call_ModsSaveEnd(void)
 		undo_count--;
 		wrbyte(undo[undo_count].addr, undo[undo_count].old);
 	}
+}
+
+/* =========================================================================
+ * Options of the game's bug fixes
+ * ========================================================================= */
+bool smoke_inherit = false;
+int smoke_cap_ms = 500;       /* the speed smoke is left behind at, m/s */
+#define SMOKE_UNITS_PER_MS 10.6 /* 5300 velocity units = 500 m/s */
+
+bool mine_prox = true;
+int mine_radius_m = 250;
+
+/* Lsmoke_vel: A0 = the damaged ship, A1 = its new puff of smoke, made at rest.
+ * Gives the puff the part of the ship's velocity over the limit, so a fast
+ * ship's trail does not stretch for hundreds of km. */
+void Call_SmokeVel(void)
+{
+	if (!smoke_inherit)
+		return;
+	u32 ship = (u32)GetReg(REG_A0), puff = (u32)GetReg(REG_A1);
+	if (!ship || !puff)
+		return;
+	double v[3], len2 = 0;
+	for (int i = 0; i < 3; i++)
+	{
+		v[i] = (double)(s32)rdlong(ship + 98 + 4 * i);
+		len2 += v[i] * v[i];
+	}
+	double cap = smoke_cap_ms * SMOKE_UNITS_PER_MS;
+	if (len2 <= cap * cap)
+		return;
+	double keep = 1.0 - cap / sqrt(len2);
+	for (int i = 0; i < 3; i++)
+	{
+		wrlong(puff + 98 + 4 * i, (int)(v[i] * keep));
+		wrword(puff + 192 + 2 * i, 0);
+	}
+}
+
+/* Lmine_phys, Lmine_boom: D0 = the radius in units of 1024 mm, 0 = no fuse */
+void Call_MineRadius(void)
+{
+	SetReg(REG_D0, mine_prox ? mine_radius_m * 1000 / 1024 : 0);
 }

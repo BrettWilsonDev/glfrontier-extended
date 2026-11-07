@@ -43,7 +43,6 @@
 	X(TWINKLY_CIRCLE, draw_twinkly_circle)                                                                   \
 	X(CIRCLE, draw_circle)                                                                                   \
 	X(BLOB, draw_blob)                                                                                       \
-	X(OVAL, draw_oval)                                                                                       \
 	X(CYLINDER, draw_cylinder)                                                                               \
 	X(LINE_2D, draw_line_2d)                                                                                 \
 	X(COMPLEX_START, draw_complex_start)                                                                     \
@@ -102,9 +101,12 @@ bool scene_active(void);
 
 /* Start a new frame of recording (Nu_3DViewInit) */
 void scene_reset(void);
-/* Start a new depth node (Nu_InsertZNode); larger z is drawn first.
+/* Start a new depth node; larger z is drawn first.
  * Returns false if no node was started (renderer off, locked or full). */
 bool scene_insert_node(uint32_t z);
+/* Same for a node the game is also adding to its own depth tree at address
+ * game_node (Nu_InsertZNode); it goes into the group the game has open. */
+bool scene_insert_game_node(uint32_t z, uint32_t game_node);
 /* Keep appending to the current node even if the game inserts new ones
  * (used while a complex polygon is being recorded). */
 void scene_lock_node(bool lock);

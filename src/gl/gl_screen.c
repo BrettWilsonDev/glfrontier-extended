@@ -402,7 +402,7 @@ void Nu_3DViewInit(void)
 
 void Nu_InsertZNode(void)
 {
-	if (!scene_insert_node((uint32_t)GetReg(REG_D4)))
+	if (!scene_insert_game_node((uint32_t)GetReg(REG_D4), (uint32_t)GetReg(REG_A1)))
 		return;
 	/* A1 is where the game is about to build the matching node of its own
 	 * software depth tree. Some of those (atmosphere haze) have no GL hook,

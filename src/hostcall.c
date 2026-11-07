@@ -6,6 +6,7 @@
  *   0x00-0x27  system, screen (host_screen.c), audio, input, files
  *              (host_files.c)
  *   0x28-0x29  mods framework (mods.c)
+ *   0x2a-0x2b  options of the game's bug fixes (mods.c)
  *   0x60-0x79  renderer hooks (renderer.h)
  */
 #include <SDL.h>
@@ -108,6 +109,8 @@ HOSTCALL hcalls[] = {
 	[0x27] = Call_Fclosedir,
 	[0x28] = Call_ModsSaveBegin, /* mods framework, see mods.c */
 	[0x29] = Call_ModsSaveEnd,
+	[0x2a] = Call_SmokeVel,
+	[0x2b] = Call_MineRadius,
 
 	[0x60] = Nu_PutTriangle,
 	[0x61] = Nu_PutQuad,

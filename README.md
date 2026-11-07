@@ -38,11 +38,17 @@ On touch screens: drag on the left half to move (a thumbstick that starts under 
   * Free camera
   * Custom ship models: new looks for existing ships, and new ship types with their own name, stats, collision, shipyards and traffic (see FE2 Ship Builder below)
   * Option to leave mod data out of saved games, so they load in the unmodded game
+  * Fixes to bugs in the original game, from the [frontier-elite-vibes](https://github.com/crinkelitehttps/frontier-elite-vibes) fork: gravity doubling in low orbit, ships destroyed far out in orbit, "Relative to" never switching to a station, altitude readout over stars and gas giants, smoke of fast ships, passengers past their month, police Vipers exploding on launch, proximity mines, pirate groups, time acceleration stepping down as a ship closes in
+* Saves and settings in the usual per-user places instead of next to the exe (saves, settings and the galaxy cache from an older version in the working directory are copied over on the first run):
+  * Windows: `Documents\My Games\GLFrontier\` (saves in `savs\`, settings in `glfrontier.cfg`)
+  * Linux: saves in `~/.local/share/glfrontier/savs/`, settings in `~/.config/glfrontier/glfrontier.cfg` (or under `$XDG_DATA_HOME` / `$XDG_CONFIG_HOME`)
+  * Android and web are unchanged: the app's internal storage, and the browser's IndexedDB
 * Migrated build system to CMake
+* Dependencies (SDL2, PhysFS, glad, Dear ImGui) vendored and stripped down: no downloads at build time
 * Supports GCC, Clang, and MSVC
 
 ## Dependencies
-Automatically managed by CMake or included in the `vendor` directory.
+All in the `vendor` directory, stripped down to what the builds use: nothing is downloaded at build time (see `vendor/README.md`). Desktop builds are Windows and Linux.
 
 Required: 
 * GCC or Clang or MSVC compilers
@@ -140,9 +146,11 @@ Its data is one for one with the game's because it comes from the game itself: t
 * more mods
 
 ## Acknowledgments
+* Frontier: Elite II (1993) was written by David Braben, with music by David Lowe, and published by GameTek. It is the sequel to Elite (1984) by David Braben and Ian Bell
 * Tom Morton original author of GLFrontier Wayback machine archive [Tom Morton - GLFrontier](https://web.archive.org/web/20171014043201/http://tom.noflag.org.uk/glfrontier.html)
 * This project is forked from: [Pcercuei's Copy of GLFrontier](https://github.com/pcercuei/glfrontier)
 * Incorporates additional code from: [GLFrontier-win32](https://github.com/Kochise/GLFrontier-win32.git)
+* Fixes from the [frontier-elite-vibes](https://github.com/crinkelitehttps/frontier-elite-vibes) fork by [crinkelitehttps](https://github.com/crinkelitehttps).
 * sdl2 for windowing and input: [SDL2](https://github.com/libsdl-org/SDL/tree/SDL2)
 * physFs for file system (loading and saving save game): [physFs](https://github.com/icculus/physfs)
 * minivorbis for audio: [MiniVorbis](https://github.com/edubart/minivorbis)

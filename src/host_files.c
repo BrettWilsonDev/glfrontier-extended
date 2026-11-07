@@ -3,7 +3,8 @@
  * listing a directory.
  *
  * Where saves live:
- *   desktop   the path the game asks for, relative to the working directory
+ *   desktop   user_data_dir() (Documents\My Games\GLFrontier on Windows,
+ *             ~/.local/share/glfrontier on Linux), see user_dir.h
  *   Android   the app's internal storage
  *   web       /saves, an IndexedDB backed folder synced after every change
  */
@@ -12,6 +13,7 @@
 #include "host.h"
 #include "hostcall.h"
 #include "main.h"
+#include "user_dir.h"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -63,14 +65,22 @@ static void host_path(const char *name, char *out, size_t size)
 		rel++;
 	snprintf(out, size, "%s/%s", SDL_AndroidGetInternalStoragePath(), rel);
 #else
-	snprintf(out, size, "%s", name);
+	const char *rel = name;
+	if (*rel)
+		rel++; /* drive letter */
+	if (*rel == '/' || *rel == '\\')
+		rel++;
+	if (user_data_dir()[0])
+		snprintf(out, size, "%s%s", user_data_dir(), rel);
+	else
+		snprintf(out, size, "%s", name); /* no user folder: the working directory */
 #endif
 }
 
 /* D1 = file name; returns remove() result in D0 */
 void Call_Fdelete(void)
 {
-	char name[GAME_NAME_MAX], path[512];
+	char name[GAME_NAME_MAX], path[1024];
 	read_game_string(GetReg(REG_D1), name, sizeof(name));
 #if defined(__EMSCRIPTEN__)
 	/* the web build deletes by the game's name, as before */
@@ -78,7 +88,11 @@ void Call_Fdelete(void)
 #else
 	host_path(name, path, sizeof(path));
 #endif
+#if defined(__EMSCRIPTEN__) || defined(ANDROID)
 	SetReg(REG_D0, remove(path));
+#else
+	SetReg(REG_D0, user_remove(path));
+#endif
 #ifdef __EMSCRIPTEN__
 	sync_filesystem();
 #endif
@@ -87,11 +101,15 @@ void Call_Fdelete(void)
 /* D1 = file name, A4 = buffer, D7 = length; returns bytes written in D0 */
 void Call_Fwrite(void)
 {
-	char name[GAME_NAME_MAX], path[512];
+	char name[GAME_NAME_MAX], path[1024];
 	read_game_string(GetReg(REG_D1), name, sizeof(name));
 	host_path(name, path, sizeof(path));
 
+#if defined(__EMSCRIPTEN__) || defined(ANDROID)
 	FILE *f = fopen(path, "wb");
+#else
+	FILE *f = user_fopen(path, "wb");
+#endif
 	if (!f)
 	{
 		log_printf("Could not write '%s'\n", path);
@@ -108,11 +126,15 @@ void Call_Fwrite(void)
 /* D1 = file name, A4 = buffer, D7 = length; returns bytes read in D0 */
 void Call_Fread(void)
 {
-	char name[GAME_NAME_MAX], path[512];
+	char name[GAME_NAME_MAX], path[1024];
 	read_game_string(GetReg(REG_D1), name, sizeof(name));
 	host_path(name, path, sizeof(path));
 
+#if defined(__EMSCRIPTEN__) || defined(ANDROID)
 	FILE *f = fopen(path, "rb");
+#else
+	FILE *f = user_fopen(path, "rb");
+#endif
 	if (!f)
 	{
 		SetReg(REG_D0, 0);
@@ -199,12 +221,7 @@ static bool dir_next(char name[DIR_NAME_LEN], int *len, int *attribs)
 
 static char **dir_files;
 static bool physfs_ready;
-#ifdef ANDROID
-static char mount_path[512];
-#define MOUNT_PATH mount_path
-#else
-#define MOUNT_PATH cur_dir
-#endif
+static char mount_path[1024];
 
 static bool init_physfs(void)
 {
@@ -215,7 +232,7 @@ static bool init_physfs(void)
 #ifdef ANDROID
 	const char *write_dir = SDL_AndroidGetInternalStoragePath();
 #else
-	const char *write_dir = ".";
+	const char *write_dir = user_data_dir()[0] ? user_data_dir() : ".";
 #endif
 	if (!write_dir || !PHYSFS_setWriteDir(write_dir))
 	{
@@ -250,10 +267,12 @@ void Call_Fopendir(void)
 	}
 #ifdef ANDROID
 	snprintf(mount_path, sizeof(mount_path), "%s/%s", SDL_AndroidGetInternalStoragePath(), dir);
+#else
+	snprintf(mount_path, sizeof(mount_path), "%s%s", user_data_dir()[0] ? user_data_dir() : "./", dir);
 #endif
-	if (!PHYSFS_mount(MOUNT_PATH, "/", 1))
+	if (!PHYSFS_mount(mount_path, "/", 1))
 	{
-		log_printf("PHYSFS_mount(%s) failed: %s\n", MOUNT_PATH,
+		log_printf("PHYSFS_mount(%s) failed: %s\n", mount_path,
 				   PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
 		SetReg(REG_D0, -1);
 		return;
@@ -274,7 +293,7 @@ void Call_Fclosedir(void)
 		PHYSFS_freeList(dir_files);
 		dir_files = NULL;
 	}
-	PHYSFS_unmount(MOUNT_PATH);
+	PHYSFS_unmount(mount_path);
 }
 
 /* Next directory entry; false at the end */

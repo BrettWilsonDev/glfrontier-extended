@@ -41,16 +41,8 @@ endif()
 # Libraries linked into the game, filled in below
 set(LIBRARIES "")
 
-include(FetchContent)
-function(add_git_dependency name url tag)
-    FetchContent_Declare(${name}
-        GIT_REPOSITORY ${url}
-        GIT_TAG ${tag}
-        GIT_SHALLOW TRUE
-        GIT_PROGRESS TRUE
-    )
-    FetchContent_MakeAvailable(${name})
-endfunction()
+# SDL2, PhysFS, glad and imgui come from vendor/ (nothing is downloaded)
+include(cmake/GlfDeps.cmake)
 
 ##########################################################################################
 # SDL2
@@ -62,7 +54,7 @@ if(USE_SDL2 AND NOT PLATFORM STREQUAL "Web")
         option(SDL_SHARED "Build SDL as a shared library" ON)
     endif()
 
-    foreach(sub AUDIO VIDEO TIMERS THREADS RENDER EVENTS CPUINFO ATOMIC)
+    foreach(sub AUDIO VIDEO TIMERS THREADS EVENTS CPUINFO ATOMIC)
         set(SDL_${sub} ON CACHE BOOL "" FORCE)
     endforeach()
     foreach(sub FILE FILESYSTEM MISC TEST EXAMPLES DEMOS)
@@ -71,7 +63,7 @@ if(USE_SDL2 AND NOT PLATFORM STREQUAL "Web")
     set(SDL2MAIN OFF CACHE BOOL "" FORCE)
 
     if(ANDROID)
-        foreach(sub JOYSTICK HAPTIC SENSOR POWER)
+        foreach(sub RENDER JOYSTICK HAPTIC SENSOR POWER)
             set(SDL_${sub} ON CACHE BOOL "" FORCE)
         endforeach()
         # SDL's Java side (HIDDeviceManager) always calls into hidapi's
@@ -79,12 +71,12 @@ if(USE_SDL2 AND NOT PLATFORM STREQUAL "Web")
         set(SDL_HIDAPI ON CACHE BOOL "" FORCE)
         set(SDL_HIDAPI_JOYSTICK OFF CACHE BOOL "" FORCE)
     else()
-        foreach(sub JOYSTICK HAPTIC SENSOR POWER)
+        foreach(sub RENDER VULKAN OPENGLES JOYSTICK HAPTIC SENSOR POWER)
             set(SDL_${sub} OFF CACHE BOOL "" FORCE)
         endforeach()
     endif()
 
-    add_git_dependency(SDL2 https://github.com/libsdl-org/SDL.git SDL2)
+    glf_add_sdl2()
 
     if(ANDROID)
         set(SDL_TARGET SDL2-static)
@@ -100,16 +92,7 @@ endif()
 
 if(USE_SDL2 AND PLATFORM STREQUAL "Web")
     # emscripten provides SDL2 (-s USE_SDL=2); only the headers are needed here
-    FetchContent_Declare(SDL2
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-        GIT_TAG SDL2
-        GIT_SHALLOW TRUE
-    )
-    FetchContent_GetProperties(SDL2)
-    if(NOT sdl2_POPULATED)
-        FetchContent_Populate(SDL2)
-    endif()
-    include_directories(${sdl2_SOURCE_DIR}/include)
+    include_directories(${GLF_SDL2_INCLUDE_DIR})
 endif()
 
 ##########################################################################################
@@ -117,11 +100,7 @@ endif()
 ##########################################################################################
 
 if(USE_PHYSFS)
-    set(PHYSFS_STATIC_BUILD ON CACHE BOOL "")
-    set(PHYSFS_BUILD_SHARED OFF CACHE BOOL "")
-    set(PHYSFS_BUILD_TEST OFF CACHE BOOL "")
-    set(PHYSFS_BUILD_DOCS OFF CACHE BOOL "")
-    add_git_dependency(physfs https://github.com/icculus/physfs.git main)
+    glf_add_physfs()
     list(APPEND LIBRARIES PhysFS::PhysFS-static)
 endif()
 
@@ -130,13 +109,13 @@ endif()
 ##########################################################################################
 
 if(USE_GLAD)
-    # glad 1.x: master is glad 2, which has no glad/glad.h or gladLoadGLLoader
-    set(GLAD_PROFILE "core" CACHE STRING "OpenGL profile")
-    set(GLAD_API "gl=" CACHE STRING "API type/version pairs, no version means latest")
-    set(GLAD_GENERATOR "c" CACHE STRING "Language to generate the binding for")
-    find_package(OpenGL REQUIRED)
-    add_git_dependency(glad https://github.com/Dav1dde/glad.git v0.1.36)
+    glf_add_glad()
     list(APPEND LIBRARIES glad)
+endif()
+
+# Windows: SHGetFolderPathW finds Documents for the saves (src/user_dir.c)
+if(WIN32)
+    list(APPEND LIBRARIES shell32)
 endif()
 
 if(ANDROID)
@@ -151,28 +130,10 @@ endif()
 # Dear ImGui (emulator menu)
 ##########################################################################################
 
-FetchContent_Declare(imgui
-    GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG v1.91.9
-    GIT_SHALLOW TRUE
-)
-FetchContent_GetProperties(imgui)
-if(NOT imgui_POPULATED)
-    FetchContent_Populate(imgui)
-endif()
-
-add_library(imgui STATIC
-    ${imgui_SOURCE_DIR}/imgui.cpp
-    ${imgui_SOURCE_DIR}/imgui_draw.cpp
-    ${imgui_SOURCE_DIR}/imgui_tables.cpp
-    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
-)
-target_sources(imgui PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
+glf_add_imgui()
 if(ANDROID OR PLATFORM STREQUAL "Web")
     target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_ES3)
 endif()
-target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
 if(SDL_TARGET)
     target_link_libraries(imgui PUBLIC ${SDL_TARGET})
 endif()
@@ -367,9 +328,13 @@ elseif(MSVC)
 elseif(CMAKE_C_COMPILER_ID STREQUAL "Intel")
     target_link_libraries(${PROJECT_NAME} ${LIBRARIES} -static-intel -lpthread)
 else()
-    # GCC / Clang: fully static executable
+    # GCC / Clang: fully static executable on Windows. Elsewhere libc stays
+    # dynamic: a static glibc binary crashes when SDL dlopens the GL driver.
     target_link_libraries(${PROJECT_NAME} ${LIBRARIES}
-        -static-libgcc -static-libstdc++ -static -pthread)
+        -static-libgcc -static-libstdc++ -pthread)
+    if(WIN32)
+        target_link_options(${PROJECT_NAME} PRIVATE -static)
+    endif()
     if(WIN32 AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
         target_link_options(${PROJECT_NAME} PRIVATE -mwindows) # no console window
     endif()

@@ -9,6 +9,16 @@
 #include <cstring>
 #include <thread>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 #include "fe2vm.h"
 #include "galaxy_labels.h"
 #include "screen_font.h" /* font_bmp: the advance widths DrawStr uses */
@@ -788,9 +798,22 @@ const SectorSummary &Galaxy::sector_summary(int x, int y)
    ports, orbital) and the systems with starports (id, surface, orbital) */
 static const char CACHE_MAGIC[8] = {'F', 'E', '2', 'G', 'A', 'L', 'X', '1'};
 
+/* fopen taking a UTF-8 path on Windows too (the cache sits under the user's
+   Documents, which can have any name) */
+static FILE *cache_fopen(const std::string &path, const char *mode)
+{
+#ifdef _WIN32
+	wchar_t wpath[1024], wmode[8];
+	if (MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, wpath, 1024) > 0 &&
+		MultiByteToWideChar(CP_UTF8, 0, mode, -1, wmode, 8) > 0)
+		return _wfopen(wpath, wmode);
+#endif
+	return fopen(path.c_str(), mode);
+}
+
 bool Galaxy::load_cache(const std::string &path)
 {
-	FILE *f = fopen(path.c_str(), "rb");
+	FILE *f = cache_fopen(path, "rb");
 	if (!f)
 		return false;
 	char magic[8];
@@ -827,7 +850,7 @@ bool Galaxy::load_cache(const std::string &path)
 
 bool Galaxy::save_cache(const std::string &path)
 {
-	FILE *f = fopen(path.c_str(), "wb");
+	FILE *f = cache_fopen(path, "wb");
 	if (!f)
 		return false;
 	uint32_t hash = fe2vm_game_hash(), n = (uint32_t)sector_sums_.size();

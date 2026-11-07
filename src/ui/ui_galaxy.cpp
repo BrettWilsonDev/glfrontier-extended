@@ -31,6 +31,7 @@ extern "C"
 #include "host.h"
 #include "main.h"
 #include "renderer.h"
+#include "user_dir.h"
 }
 
 using namespace galaxy;
@@ -71,7 +72,7 @@ std::string cache_file()
 	const char *dir = SDL_AndroidGetInternalStoragePath();
 	return dir ? std::string(dir) + "/FE2Galaxy.cache" : "";
 #else
-	return "FE2Galaxy.cache";
+	return std::string(user_data_dir()) + "FE2Galaxy.cache";
 #endif
 }
 

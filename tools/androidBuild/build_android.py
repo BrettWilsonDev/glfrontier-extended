@@ -379,11 +379,10 @@ def main():
 
     modded = args.variant == "modded"
     libs = {}
-    sdl_src = None
     for abi in args.abi:
         bdir, so = build_native(sdk, abi, modded, args.jobs)
         libs[abi] = so
-        sdl_src = bdir / "_deps" / "sdl2-src"
+    sdl_src = ROOT / "vendor" / "SDL2"
 
     work = OUT_DIR / args.variant / "apk"
     work.mkdir(parents=True, exist_ok=True)

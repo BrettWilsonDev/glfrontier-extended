@@ -358,5 +358,25 @@
 #define FE2_Lmdlmod_picks_on                         0xa3f7e /* Lmdlmod_picks_on */
 #define FE2_Lmdlmod_picks                            0xa3f80 /* Lmdlmod_picks */
 #define FE2_Lmdlmod_strings                          0xa5f80 /* Lmdlmod_strings */
+#define FE2_Lgrav_norm                               0xa8f80 /* Lgrav_norm */
+#define FE2_Lgrav_mass                               0xa8f8e /* Lgrav_mass */
+#define FE2_Lcool_dec                                0xa8f98 /* Lcool_dec */
+#define FE2_Lprox_log                                0xa8fae /* Lprox_log */
+#define FE2_Lframe_cand                              0xa8fcc /* Lframe_cand */
+#define FE2_Lalt_hud                                 0xa9000 /* Lalt_hud */
+#define FE2_Lsmoke_vel                               0xa9058 /* Lsmoke_vel */
+#define FE2_Lpax_late                                0xa9064 /* Lpax_late */
+#define FE2_Lpol_slot                                0xa908e /* Lpol_slot */
+#define FE2_Lpol_spawn                               0xa90a2 /* Lpol_spawn */
+#define FE2_Lpol_release                             0xa90ce /* Lpol_release */
+#define FE2_Lpol_phys                                0xa9110 /* Lpol_phys */
+#define FE2_Lpol_grace                               0xa914a /* Lpol_grace */
+#define FE2_Lpol_dmg1                                0xa9190 /* Lpol_dmg1 */
+#define FE2_Lpol_dmg2                                0xa91a0 /* Lpol_dmg2 */
+#define FE2_Lpol_next                                0xa91b0 /* Lpol_next */
+#define FE2_Lmine_dist                               0xa91b4 /* Lmine_dist */
+#define FE2_Lmine_phys                               0xa920e /* Lmine_phys */
+#define FE2_Lmine_boom                               0xa9286 /* Lmine_boom */
+#define FE2_Ltguard_tab                              0xa9382 /* Ltguard_tab */
 
 #endif /* FE2_LABELS_H */

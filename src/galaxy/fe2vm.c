@@ -264,7 +264,7 @@ void fe2vm_set_live(int on)
 static int batch;		/* fe2vm_begin depth */
 static u32 batch_stack; /* the top of what the calls may use */
 static union Reg saved_regs[16];
-static s32 saved_flags[10], saved_rdest, saved_pending, saved_pending_nums[32];
+static s32 saved_flags[10], saved_rdest, saved_pending;
 static u32 saved_handlers[32];
 static HOSTCALL *saved_hcalls; /* hcalls_count of them */
 /* All of the game's RAM. The calls write the galaxy map's globals, the body
@@ -288,9 +288,8 @@ void fe2vm_begin(void)
 	   what is already pending */
 	memcpy(saved_handlers, exception_handlers, sizeof(saved_handlers));
 	memset(exception_handlers, 0, sizeof(exception_handlers));
-	saved_pending = exceptions_pending;
-	memcpy(saved_pending_nums, exceptions_pending_nums, sizeof(saved_pending_nums));
-	exceptions_pending = 0;
+	saved_pending = EXCEPTIONS_PENDING_SWAP(0);
+	EXCEPTIONS_DEFERRED_SWAP(0); /* none from before (no handler then) */
 
 	memcpy(saved_regs, Regs, sizeof(saved_regs));
 	s32 flags[10] = {N, nZ, V, C, X, bN, bnZ, bV, bC, bX};
@@ -324,11 +323,11 @@ void fe2vm_end(void)
 	bN = saved_flags[5], bnZ = saved_flags[6], bV = saved_flags[7], bC = saved_flags[8], bX = saved_flags[9];
 	rdest = saved_rdest;
 
-	/* what was pending, and any vblank that came in (lost: the handlers were
-	   gone), back; then the handlers */
-	exceptions_pending |= saved_pending;
-	for (int i = 0; i < 32; i++)
-		exceptions_pending_nums[i] |= saved_pending_nums[i];
+	/* what was pending, and any vblank that came in while the handlers were
+	   gone (deferred, host.h), back; then the handlers. Dropping them lost
+	   the game's input polls: a world capture and a camera picture take up
+	   to half of each second, so half its vblanks. */
+	EXCEPTIONS_PENDING_OR(saved_pending | EXCEPTIONS_DEFERRED_SWAP(0));
 	memcpy(exception_handlers, saved_handlers, sizeof(saved_handlers));
 }
 

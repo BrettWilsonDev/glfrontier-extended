@@ -108,6 +108,8 @@ Call_Fclosedir		equ	$27
 * Mods framework (src/mods.c): strip / put back mod state around a save
 Call_ModsSaveBegin	equ	$28
 Call_ModsSaveEnd	equ	$29
+Call_SmokeVel		equ	$2a
+Call_MineRadius		equ	$2b
 Nu_PutTriangle		equ	$60
 Nu_PutQuad		equ	$61
 Nu_PutLine		equ	$62
@@ -19376,8 +19378,8 @@ L3f460:
 		tst.w	278(a0)
 		beq.s	l3f4a2
 		move.l	14446(a6),d7
-		lsr.l	#1,d7
-		sub.w	d7,278(a0)
+* Bug fix hook, same size: see Lcool_dec near the end of the file.
+		jsr	Lcool_dec
 		bcc.s	l3f4c4
 		clr.w	278(a0)
 	l3f4a2:	btst	#$1,d0
@@ -19568,9 +19570,8 @@ L3f566:
 		swap	d3
 		mulu	d5,d5
 		add.l	d3,d5
-		add.l	d1,d0
-		add.l	d2,d0
-		cmp.l	d5,d0
+* Bug fix hook, same size: see Lprox_log near the end of the file.
+		jsr	Lprox_log
 		bhi.w	l3f864
 		movem.l	(a7)+,d3-5
 		addq.l	#6,a7
@@ -19842,13 +19843,13 @@ L3f8fe:
 	l3f9b4:	add.w	d0,d0
 		move.w	d0,-(a7)
 		move.b	93(a0),d7
-		jsr	486(a5)
-		move.w	(a7)+,d0
-		move.b	93(a1),d7
+* Bug fix hook, same size: see Lpol_dmg1 near the end of the file.
+		jmp	Lpol_dmg1
+	lpol_dmg1_back:	move.b	93(a1),d7
 	l3f9c6:	move.l	a1,-(a7)
 		movea.l	a0,a1
-		jsr	486(a5)
-		movea.l	(a7)+,a1
+* Bug fix hook, same size: see Lpol_dmg2 near the end of the file.
+		jmp	Lpol_dmg2
 	l3f9d0:	move.b	16014(a6),d0
 		rts
 
@@ -25433,8 +25434,8 @@ L4388c:
 		sub.w	d5,d6
 		asr.w	#2,d5
 		sub.w	d5,d6
-		cmp.w	#$8,d6
-		bgt.s	L43926
+* Bug fix hook, same size: see Ltguard near the end of the file.
+		jsr	Ltguard
 		clr.b	281(a0)
 		clr.b	97(a1)
 		subq.w	#2,d6
@@ -26113,9 +26114,10 @@ L43ed6:
 		moveq	#0,d6
 	l43f5a:	add.w	d6,d7
 		move.w	d7,d3
-		asr.w	#1,d3
-		add.w	d7,d3
-		sub.w	176(a1),d3
+* Bug fix hook, same size: see Lgrav_norm near the end of the file.
+		bra.s	l43f64
+lgrav_t1:	jmp	Lgrav_norm
+	l43f64:
 		tst.w	122(a1)
 		beq.w	l44040
 		movem.w	d0-2,16008(a6)
@@ -26125,8 +26127,8 @@ L43ed6:
 	l43f7e:	subq.w	#1,d7
 		add.w	d0,d0
 		bpl.s	l43f7e
-		addq.w	#1,d7
-		lsr.w	#1,d0
+		bsr.s	lgrav_t1
+		nop
 	l43f88:	move.w	d0,d1
 		beq.w	l44040
 		muls	d0,d0
@@ -26143,7 +26145,8 @@ L43ed6:
 		bpl.s	l43fa0
 		addq.w	#1,d7
 		lsr.w	#1,d0
-	l43faa:	movem.w	122(a1),d5-6
+* Bug fix hook, same size: see Lgrav_mass near the end of the file.
+	l43faa:	jsr	Lgrav_mass
 		tst.w	d0
 		beq.s	l43fce
 		sub.w	d7,d6
@@ -26289,7 +26292,8 @@ L440fe:
 		cmp.w	(a7),d7
 		ble.s	l441ba
 	l44148:	moveq	#114,d0
-	l4414a:	btst	#$4,0(a4,d0.w)
+* Bug fix hook, same size: see Lframe_cand near the end of the file.
+	l4414a:	jsr	Lframe_cand
 		dbne	d0,l4414a
 		beq.w	l441aa
 		move.w	d0,-(a7)
@@ -28745,7 +28749,8 @@ L4600a:
 		beq.s	l46074
 		movem.l	(a7)+,d0-5
 		movem.l	d0-5,44(a1)
-		move.b	#$b,94(a1)
+* Bug fix hook, same size: see Lsmoke_vel near the end of the file.
+		jsr	Lsmoke_vel
 		move.b	#$5c,211(a1)
 		move.w	#$ffff,122(a1)
 		jsr	A5_2RandInts(a5)
@@ -42501,11 +42506,14 @@ L63574_mod3_fn20_DrawPlayerHUD:
 	l6366c:	move.w	#$8620,d0
 		move.l	692(a6),d3
 		bmi.s	l6368c
-		divu	#$3e8,d3
-		bvs.s	l6368c
-		andi.l	#$ffff,d3
-		cmp.w	#$ea60,d3
+* Bug fix hook, same size: see Lalt_hud near the end of the file.
+		jsr	Lalt_hud
 		bhi.s	l6368c
+		nop
+		nop
+		nop
+		nop
+		nop
 		move.w	#$8622,d0
 	l6368c:	btst	#$0,A6_plr_flight_flags(a6)
 		bne.s	l6369c
@@ -50319,12 +50327,14 @@ L7490a:
 
 L7490c:
 		move.b	670(a6),d7
-		moveq	#4,d0
+* Bug fix: of 7 rolls, 0 is a lone pirate, 1 and 2 a group of three, 3-6 nothing
+* (it was 4 rolls: 0 lone, 1 group, 2-3 nothing). Same pirates per roll, same size.
+		moveq	#7,d0
 		jsr	A5_RandInt(a5)
 		tst.w	d0
 		beq.s	l74922
-		subq.w	#1,d0
-		beq.w	l7494a
+		subq.w	#3,d0
+		bcs.w	l7494a
 		rts
 
 	l74922:	move.l	a0,-(a7)
@@ -50812,8 +50822,8 @@ L74ed8:
 L74eda:
 		movem.l	d2-3,-(a7)
 		move.l	d2,d7
-		jsr	750(a5)
-		bra.s	l74f04
+* Bug fix hook, same size: see Lmine_phys near the end of the file.
+		jmp	Lmine_phys
 
 L74ee6:
 		movem.l	d2-3,-(a7)
@@ -50990,8 +51000,8 @@ L750c0_mod11_fn24_OtherShipPhysics:
 		movem.l	d2-3,126(a0)
 		sub.l	d0,d2
 		subx.l	d1,d3
-		moveq	#0,d7
-		move.b	211(a0),d7
+* Bug fix hook, same size: see Lpol_phys near the end of the file.
+		jsr	Lpol_phys
 		move.w	L750f2(pc,d7.w),d7
 		jmp	L750f0(pc,d7.w)
 
@@ -51463,7 +51473,8 @@ L755d0:
 		beq.s	l755e6
 		tst.b	159(a1)
 		bne.s	l755ce
-	l755e6:	move.b	#$4,211(a0)
+* Bug fix hook, same size: see Lpol_release near the end of the file.
+	l755e6:	jmp	Lpol_release
 		rts
 L755ee:
 		jsr	A5_2RandInts(a5)
@@ -51644,9 +51655,10 @@ L757e0:
 
 L75818:
 		dc.b	$0,$a,$0,$64,$0,$c8,$1,$2c,$1,$90,$0,$64
-	l75824:	move.b	93(a1),d0
-		cmp.b	212(a0),d0
-		bne.s	l75836
+* Bug fix hook, same size: see Lmine_boom near the end of the file.
+	l75824:	jmp	Lmine_boom
+		nop
+	l7582c:	bne.s	l75836
 		cmpi.w	#$2,116(a0)
 		ble.s	l75894
 	l75836:	cmpi.w	#$10,90(a0)
@@ -58607,9 +58619,10 @@ L7ed00:
 		bclr	#$0,129(a6)
 		rts
 
-	l7edac:	cmp.l	4(a0),d2
-		dbeq	d7,l7ee7e
-		bne.s	l7eda0
+* Bug fix hook, same size: see Lpax_late near the end of the file.
+	l7edac:	jmp	Lpax_late
+		nop
+	l7edb4:	bne.s	l7eda0
 		tst.l	12(a0)
 		bne.s	l7ee06
 		movem.l	d7/a0,-(a7)
@@ -60057,16 +60070,18 @@ L80ebc:
 L80f5c:
 		movem.l	a1/d7/d0,-(a7)
 		move.l	A6_big_space(a6),14462(a6)
-		moveq	#9,d1
-		movea.l	68(a6),a0
+* Bug fix hook, same size: see Lpol_slot near the end of the file.
+		jsr	Lpol_slot
 		jsr	32(a0)
 		moveq	#5,d7
 		movea.l	100(a6),a0
 		jsr	32(a0)
 		beq.w	l81038
 		movem.l	(a7),d0/d7/a0
-		move.b	d0,211(a1)
-		btst	#$5,280(a0)
+* Bug fix hook, same size: see Lpol_spawn near the end of the file.
+		jsr	Lpol_spawn
+		nop
+		nop
 		beq.s	l80fd0
 		movem.l	44(a1),d0-5
 		add.l	44(a0),d0
@@ -67072,3 +67087,517 @@ Lmdlmod_picks:
 Lmdlmod_strings:
 		ds.b	12288
 * ^^ NAMES_BYTES in src/custom_ships.c: 272 names of up to 40 characters
+
+******************************************************************************
+* Fixes to bugs in the original game, from the frontier-elite-vibes fork
+* (github.com/crinkelitehttps/frontier-elite-vibes, docs/original-game-fixes.md).
+* Each is a same-size hook in the original code; see the "Bug fix hook" comments.
+******************************************************************************
+* Gravity (L43ed6) fix: the r^3 exponent is built from 2*e, not 3*e, so the
+* pull is wrong by 2^-sigma, sigma = how far |r| was shifted up to normalise
+* it. The error steps by 2 wherever the position exponent e changes. Lgrav_norm
+* (called from the normalisation loop; d3 holds e) leaves sigma-1 in d3 and
+* Lgrav_mass applies it to the exponent, so the pull always matches sigma = 1
+* (the old e = 19 behaviour).
+Lgrav_norm:
+		addq.w	#1,d7
+		lsr.w	#1,d0
+		neg.w	d3
+		add.w	d7,d3
+		neg.w	d3
+		subq.w	#1,d3
+		rts
+Lgrav_mass:
+		movem.w	122(a1),d5-6
+		add.w	d3,d6
+		rts
+
+* Frame-switch cooldown (278(a0), L3f45a): it ran down by dt/2 a frame, so at
+* time acceleration it was gone in a frame or two and the ship flapped between
+* frames 255 and 0 at the zone edge (alt read 0 there: drag, damage, death).
+* Take at most the 1x amount a frame (d7 = dt, 994 at 1x); leaves the carry
+* of the subtraction for the caller.
+Lcool_dec:
+		lsr.l	#1,d7
+		cmp.l	#497,d7
+		bls.s	lcool_ok
+		move.l	#497,d7
+	lcool_ok:	sub.w	d7,278(a0)
+		rts
+
+* Proximity test (L3f566): d0 = x^2 + y^2 + z^2, compared with d5 = the squared
+* radius, both normalised so that no single coordinate reaches 2.0 (2^30
+* squared). The altitude square root below (l3f864) is signed 32 bit and only
+* valid for d0 < 2^30, i.e. r < 2.0 when no coordinate was shifted: past that
+* it returned a small altitude of 0, the game took the ship for landed (drag,
+* damage, death). Replaces add, add, cmp (same size). A d0 that large is far
+* outside the planet, so it is clamped to just under 2^30, where the altitude
+* does not fit its result and stays -1 (unknown).
+Lprox_log:
+		add.l	d1,d0
+		add.l	d2,d0
+		cmp.l	#$40000000,d0
+		bcs.s	lprox_ok
+		cmp.l	#$3fffffff,d5
+		bcc.s	lprox_ok
+		move.l	#$3fffffff,d0
+	lprox_ok:	cmp.l	d5,d0
+		rts
+
+
+* Frame candidate test of L440fe's loop (replaces its btst #4,0(a4,d0.w), same
+* size). Z clear = candidate. Besides objects flagged bit 4, a starport body
+* (type 1, bit 4 of 280) is one too: the comms action L76990 and saved games
+* leave a station flagged $4f, which kept the HUD relative to the planet.
+Lframe_cand:
+		btst	#$4,0(a4,d0.w)
+		bne.s	lframe_cand_ret
+		tst.b	0(a4,d0.w)
+		beq.s	lframe_cand_no
+		movem.l	d0/a1,-(a7)
+		jsr	L44af8
+		cmpi.b	#$1,94(a1)
+		bne.s	lframe_cand_no2
+		btst	#$4,280(a1)
+		movem.l	(a7)+,d0/a1
+	lframe_cand_ret:	rts
+	lframe_cand_no2:	movem.l	(a7)+,d0/a1
+	lframe_cand_no:	cmp.b	d0,d0
+		rts
+
+
+* HUD altitude readout (the "Alt. ... m" of the flight display, L6366c's
+* neighbourhood). The original shows it only up to 60 km (a 16 bit number of
+* metres), the rest of the time the distance-only line. Over a star or a gas
+* giant (model $92-$ae, the bodies the fuel scoop works at, bit 0 of 893(a6)
+* = the body has an atmosphere shell) the readout shows from 2000 km: the
+* altitude variable 692(a6) is exact there (it does not fit in 32 bits of mm
+* past 2147 km), and a ship orbiting a star is much too fast to see 60 km
+* coming. In: d3 = altitude in mm (not negative). Out: d3 = altitude in
+* metres (32 bit, the format prints a long), flags of the range check, higher
+* = do not show.
+Lalt_hud:
+		movem.l	d4-5/a1,-(a7)
+		move.l	d3,d4
+		swap	d4
+		andi.l	#$ffff,d4
+		divu	#$3e8,d4
+		move.w	d4,-(a7)
+		move.w	d3,d4
+		divu	#$3e8,d4
+		andi.l	#$ffff,d4
+		moveq	#0,d3
+		move.w	(a7)+,d3
+		swap	d3
+		add.l	d4,d3
+		move.l	#$ea60,d5
+		btst	#$0,893(a6)
+		beq.s	lalt_hud_cmp
+		movea.l	16024(a6),a1
+		move.w	90(a1),d4
+		cmpi.w	#$92,d4
+		bcs.s	lalt_hud_cmp
+		cmpi.w	#$ae,d4
+		bhi.s	lalt_hud_cmp
+		move.l	#$1e8480,d5
+	lalt_hud_cmp:	cmp.l	d5,d3
+		movem.l	(a7)+,d4-5/a1
+		rts
+
+******************************************************************************
+* A puff of smoke (L4600a) is made at rest in the frame, so a fast ship
+* leaves it behind hundreds of km apart. With the option on the host gives it
+* the part of the ship's velocity (a0) over a cap (Call_SmokeVel, a1 = the
+* puff). Replaces move.b #$b,94(a1), which is done here.
+******************************************************************************
+Lsmoke_vel:
+		move.b	#$b,94(a1)
+		hcall	#Call_SmokeVel
+		rts
+
+******************************************************************************
+* Passengers past their month (bit 15 of the entry's flags, set by L7f0cc)
+* only left the ship at their destination, and there without giving their
+* cabins back (744(a6) keeps counting them), so a late group stayed aboard
+* for good. Now an unnamed passenger group that is past its month leaves at
+* the next landing wherever that is, by the path named clients take (L7ee06:
+* cabins freed, the angry message, entry removed). Parcels and named
+* clients are as before. Replaces cmp.l 4(a0),d2 / dbeq d7,l7ee7e at l7edac.
+* In: a0 = entry, d2 = current system, d7 = entries left.
+******************************************************************************
+Lpax_late:
+		tst.l	12(a0)
+		bne.s	lpax_late_dest
+		cmpi.b	#$1c,3(a0)
+		beq.s	lpax_late_dest
+		jmp	l7ee06
+	lpax_late_dest:
+		cmp.l	4(a0),d2
+		beq.s	lpax_late_here
+		dbra	d7,lpax_late_next
+	lpax_late_here:
+		jmp	l7edb4
+	lpax_late_next:
+		jmp	l7ee7e
+
+******************************************************************************
+* Police (L80ebc, ships made by L80f5c) are put at a bay slot (fn 9 of the
+* module at 68(a6), slot d7 = 0-3 at x = +-25 m and z = +120 m (slots 0, 1) or
+* z = -30 m (slots 2, 3) in the station's frame, table L5f3ec). From the two
+* z = -30 m slots they hit the station at once: the velocity went to nothing
+* in a few ticks (the bounce of l3f9d6) and the ships sat there in the bay
+* fighting, then blew up. Four police were also made at once and a
+* later wave reused the slots of ships still held (mode $7c, L755d0, no
+* physics until the offender flag clears), so ships sat on top of each other,
+* left their hold on the same frame and hit each other. Now:
+*  - Lpol_slot (replaces moveq #9,d1 / movea.l 68(a6),a0 in L80f5c) uses only
+*    slots 0 and 1 (d7 and 1); the saved d7 is not touched. A burst is two
+*    ships, one for each of those slots: Lpol_spawn lowers the burst's loop
+*    counter (the saved d7, low word at 10(a7) there) to 1. Both only for a station (bit 6
+*    of 280(a1) clear); a ground base keeps its own pads and four ships.
+*  - a held ship is scheduled by Lpol_release (the once-a-second AI step,
+*    replaces move.b #4,211(a0) at l755e6): its release time (time of day, bit
+*    0 set as the flag) goes in 262(a0), unused, and ships are given release
+*    times 0.75 s (37275 units, 49710 a second) apart across all waves
+*    (Lpol_next). Lpol_phys (every tick, replaces moveq #0,d7 / move.b
+*    211(a0),d7 in L750c0) runs the ship's physics as mode 4 from its time on
+*    but leaves it in hold mode (no steering, no combat) for 3 s ($2468a), so it
+*    coasts straight out of the bay on its launch velocity; only then is it
+*    mode 4.
+*  - the ship still hits the station for a tick or two as it leaves the bay
+*    (every slot, even on the bay axis), which killed it, so while it is held
+*    or coasting (mode $7c) and for 2 s ($1845c) after its release a police
+*    Viper (model $2e) takes no collision damage (Lpol_grace, in the two
+*    damage calls of the collision routine at l3f9b4 / l3f9c6).
+* Lpol_spawn replaces move.b d0,211(a1) / btst #5,280(a0) in L80f5c and
+* clears 262(a1).
+******************************************************************************
+Lpol_slot:
+		moveq	#9,d1
+		movea.l	68(a6),a0
+		btst	#$6,280(a1)
+		bne.s	lpol_slot_done
+		andi.w	#$1,d7
+	lpol_slot_done:
+		rts
+
+Lpol_spawn:
+		move.b	d0,211(a1)
+		cmpi.b	#$7c,d0
+		bne.s	lpol_spawn_done
+		clr.l	262(a1)
+		btst	#$6,280(a0)
+		bne.s	lpol_spawn_done
+		cmpi.w	#$1,10(a7)
+		bls.s	lpol_spawn_done
+		move.w	#$1,10(a7)
+	lpol_spawn_done:
+		btst	#$5,280(a0)
+		rts
+
+Lpol_release:
+		btst	#$0,265(a0)
+		bne.s	lpol_release_done
+		movem.l	d0-1,-(a7)
+		move.l	524(a6),d0
+		move.l	Lpol_next,d1
+		sub.l	d0,d1
+		cmpi.l	#$79e4c,d1
+		bhi.s	lpol_release_now
+		add.l	d0,d1
+		bra.s	lpol_release_set
+	lpol_release_now:
+		move.l	d0,d1
+	lpol_release_set:
+		move.l	d1,d0
+		addi.l	#37275,d0
+		move.l	d0,Lpol_next
+		bset	#$0,d1
+		move.l	d1,262(a0)
+		movem.l	(a7)+,d0-1
+	lpol_release_done:
+		rts
+
+Lpol_phys:
+		cmpi.b	#$7c,211(a0)
+		bne.s	lpol_phys_done
+		btst	#$0,265(a0)
+		beq.s	lpol_phys_done
+		move.l	d0,-(a7)
+		move.l	524(a6),d0
+		sub.l	262(a0),d0
+		bmi.s	lpol_phys_wait
+		cmpi.l	#149130,d0
+		bhi.s	lpol_phys_attack
+		move.l	(a7)+,d0
+		moveq	#4,d7
+		rts
+	lpol_phys_attack:
+		move.b	#$4,211(a0)
+	lpol_phys_wait:
+		move.l	(a7)+,d0
+	lpol_phys_done:
+		moveq	#0,d7
+		move.b	211(a0),d7
+		rts
+
+* carry set if the victim (a1) is a police Viper in its first 2 s after release
+Lpol_grace:
+		cmpi.w	#$2e,90(a1)
+		bne.s	lpol_grace_no
+		cmpi.b	#$7c,211(a1)
+		beq.s	lpol_grace_held
+		btst	#$0,265(a1)
+		beq.s	lpol_grace_no
+		movem.l	d1,-(a7)
+		move.l	524(a6),d1
+		sub.l	262(a1),d1
+		cmpi.l	#$1845c,d1
+		movem.l	(a7)+,d1
+		rts
+	lpol_grace_held:
+		movem.l	d1,-(a7)
+		moveq	#0,d1
+		cmpi.l	#$1,d1
+		movem.l	(a7)+,d1
+		rts
+	lpol_grace_no:
+		cmp.w	d7,d7
+		rts
+
+Lpol_dmg1:
+		bsr.s	Lpol_grace
+		bcs.s	lpol_dmg1_skip
+		jsr	486(a5)
+	lpol_dmg1_skip:
+		move.w	(a7)+,d0
+		jmp	lpol_dmg1_back
+
+Lpol_dmg2:
+		bsr.s	Lpol_grace
+		bcs.s	lpol_dmg2_skip
+		jsr	486(a5)
+	lpol_dmg2_skip:
+		movea.l	(a7)+,a1
+		jmp	l3f9d0
+
+Lpol_next:
+		dc.l	0
+
+******************************************************************************
+* A proximity mine (mode $48, no AI, physics L74eda) only went off through
+* the ordinary collision test (786(a5)), which needs its model to touch the
+* hull of the other ship, so a ship had to fly into it (and the fine test
+* works in the ship's own frame, which is why it seemed to need the target to
+* point at the mine). Now every tick the mine looks at all ships in its frame
+* (not bodies, not missiles / mines / debris, model > $10; not its owner,
+* 212(a0)) and goes off when one is within the radius the host gives
+* (Call_MineRadius, 250 m by default; units of 1024 mm, 0 = as before), by the
+* game's own hit path l75824 with a1 = that ship. Replaces jsr 750(a5) /
+* bra.s l74f04 in L74eda.
+* Only the mine's owner does not set it off; every other ship does, the player
+* too (an enemy's mine).
+* Lmine_boom, at the start of l75824 (replaces move.b 93(a1),d0 / cmp.b
+* 212(a0),d0), makes the blast: when a mine goes off (by the fuse or by
+* touching a ship) every ship within the radius, the player and the owner
+* too, takes the mine's damage, besides the ship that was hit (a1), which
+* gets it from the game's own code.
+******************************************************************************
+* squared distance (units of 1024 mm) of a0 and a1 in d5, or $7fffffff when
+* they are in different frames or further than d4 on an axis
+Lmine_dist:
+		move.b	68(a1),d0
+		cmp.b	68(a0),d0
+		bne.s	lmine_dist_far
+		move.b	69(a1),d0
+		cmp.b	69(a0),d0
+		bne.s	lmine_dist_far
+		moveq	#0,d5
+		moveq	#0,d6
+	lmine_dist_axis:
+		move.l	44(a1,d6.w),d0
+		move.l	56(a1,d6.w),d1
+		sub.l	44(a0,d6.w),d0
+		move.l	56(a0,d6.w),d2
+		subx.l	d2,d1
+		smi	d2
+		ext.w	d2
+		ext.l	d2
+		cmp.l	d2,d1
+		bne.s	lmine_dist_far
+		asr.l	#8,d0
+		asr.l	#2,d0
+		cmp.l	d4,d0
+		bgt.s	lmine_dist_far
+		move.l	d4,d1
+		neg.l	d1
+		cmp.l	d1,d0
+		blt.s	lmine_dist_far
+		muls	d0,d0
+		add.l	d0,d5
+		addq.w	#4,d6
+		cmpi.w	#12,d6
+		bne.s	lmine_dist_axis
+		rts
+	lmine_dist_far:
+		move.l	#$7fffffff,d5
+		rts
+
+Lmine_phys:
+		jsr	750(a5)
+		movem.l	d0-7/a1-4,-(a7)
+		hcall	#Call_MineRadius
+		move.l	d0,d4
+		beq.w	lmine_off
+		move.l	d4,d3
+		muls	d4,d3
+		movea.l	A6_big_space(a6),a4
+		moveq	#$72,d7
+	lmine_next:
+		btst	#$2,0(a4,d7.w)
+		beq.s	lmine_skip
+		btst	#$4,0(a4,d7.w)
+		bne.s	lmine_skip
+		cmp.b	93(a0),d7
+		beq.s	lmine_skip
+		cmp.b	212(a0),d7
+		beq.s	lmine_skip
+		move.w	d7,d0
+		jsr	L44af8
+		cmpi.w	#$10,90(a1)
+		bls.s	lmine_skip
+		cmpi.b	#$1,94(a1)
+		beq.s	lmine_skip
+		bsr.w	Lmine_dist
+		cmp.l	d3,d5
+		bhi.s	lmine_skip
+		move.l	a1,32(a7)
+		movem.l	(a7)+,d0-7/a1-4
+		movem.l	(a7)+,d2-3
+		jmp	l75824
+	lmine_skip:
+		dbra	d7,lmine_next
+	lmine_off:
+		movem.l	(a7)+,d0-7/a1-4
+		jmp	l74f04
+
+Lmine_boom:
+		cmpi.b	#$48,211(a0)
+		bne.w	lmine_boom_done
+		movem.l	d0-7/a1-4,-(a7)
+		hcall	#Call_MineRadius
+		tst.l	d0
+		beq.w	lmine_boom_pop
+		move.w	90(a0),d0
+		subq.w	#6,d0
+		lea	L75818,a3
+		move.l	a1,-(a7)
+		move.w	0(a3,d0.w),-(a7)
+		move.w	#$72,-(a7)
+	lmine_boom_reload:
+		movea.l	A6_big_space(a6),a4
+		hcall	#Call_MineRadius
+		move.l	d0,d4
+		move.l	d4,d3
+		muls	d4,d3
+		movea.l	4(a7),a2
+	lmine_boom_next:
+		move.w	(a7),d7
+		btst	#$2,0(a4,d7.w)
+		beq.s	lmine_boom_skip
+		btst	#$4,0(a4,d7.w)
+		bne.s	lmine_boom_skip
+		cmp.b	93(a0),d7
+		beq.s	lmine_boom_skip
+		move.w	d7,d0
+		jsr	L44af8
+		cmpa.l	a1,a2
+		beq.s	lmine_boom_skip
+		cmpi.w	#$10,90(a1)
+		bls.s	lmine_boom_skip
+		cmpi.b	#$1,94(a1)
+		beq.s	lmine_boom_skip
+		bsr.w	Lmine_dist
+		cmp.l	d3,d5
+		bhi.s	lmine_boom_skip
+		move.w	2(a7),d0
+		move.b	212(a0),d7
+		jsr	486(a5)
+		bra.s	lmine_boom_reload_next
+	lmine_boom_skip:
+		subq.w	#1,(a7)
+		bpl.s	lmine_boom_next
+		bra.s	lmine_boom_end
+	lmine_boom_reload_next:
+		subq.w	#1,(a7)
+		bmi.s	lmine_boom_end
+		bra.s	lmine_boom_reload
+	lmine_boom_end:
+		lea	8(a7),a7
+	lmine_boom_pop:
+		movem.l	(a7)+,d0-7/a1-4
+	lmine_boom_done:
+		move.b	93(a1),d0
+		cmp.b	212(a0),d0
+		jmp	l7582c
+
+* Time acceleration step-down (hook at L4388c l438f0, replaces cmp.w #$8,d6 and
+* bgt.s L43926 - same size). d6 is the game's own estimate of the base-2 log of
+* the time a ship needs to reach its target at its present speed, less the
+* time acceleration; the
+* game's shortcut puts a ship next to its target once it is under 2, which at
+* 10000x (200 s a frame, one AI look a frame) is a pirate "out of nowhere". Here a
+* ship that flies at the player, with time accelerated and d6 at or under the limit
+* of the present rate (Ltguard_tab: about a second of flight left, measured), has the
+* game's own Shift+F key for the next lower rate pushed as if pressed (10000x to
+* 1000x to 100x to 10x to 1x), each step giving the ship ten times the time to be
+* seen in. d6 > 8 goes on to L43926 as before; d6 is kept for the rest.
+* Not in hyperspace (any of the keys would set its rate again), and not while a
+* key is waiting. While something attacks the game refuses the faster keys with a
+* message that ends at 1x anyway: Shift+F1 then.
+Ltguard:
+		cmp.w	#$8,d6
+		bgt.s	ltg_far
+		tst.b	A6_scancode_for_GetAscii(a6)
+		bne.s	ltg_done
+		cmpa.l	674(a6),a1
+		bne.s	ltg_done
+		cmpi.b	#$8,704(a6)
+		beq.s	ltg_done
+		move.w	10432(a6),d3
+		cmp.w	#12,d3
+		bhi.s	ltg_done
+		add.w	d3,d3
+		move.w	Ltguard_tab(pc,d3.w),d5
+		move.w	d5,d4
+		asr.w	#8,d4
+		cmp.w	d4,d6
+		bgt.s	ltg_done
+		btst	#$1,10476(a6)
+		beq.s	ltg_key
+		moveq	#-63,d5
+	ltg_key:
+		move.b	d5,A6_pushed_ascii_key(a6)
+		move.b	#$ff,A6_scancode_for_GetAscii(a6)
+	ltg_done:
+		rts
+	ltg_far:
+		addq.l	#4,a7
+		jmp	L43926
+* per time acceleration index 0..12 a word: the d6 limit (signed byte, -128:
+* never) and the key (Shift+F1..F4) that takes the rate one step down. Indices
+* 3, 7, 10 and 12 are 10x, 100x, 1000x and 10000x.
+Ltguard_tab:
+		dc.w	$8000
+		dc.w	$8000
+		dc.w	$8000
+		dc.w	$06c1
+		dc.w	$8000
+		dc.w	$8000
+		dc.w	$8000
+		dc.w	$05c2
+		dc.w	$8000
+		dc.w	$8000
+		dc.w	$03c3
+		dc.w	$8000
+		dc.w	$03c4

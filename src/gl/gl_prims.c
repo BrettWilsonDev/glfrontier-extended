@@ -391,36 +391,6 @@ void draw_blob(const void *payload)
 	gd_pop();
 }
 
-typedef struct
-{
-	Vec3i v;
-	int32_t d3, d4, d5, radius;
-} POval;
-
-void Nu_PutOval(void)
-{
-	POval *p = scene_record(PRIM_OVAL, sizeof *p);
-	if (!p)
-		return;
-	p->v = m68k_vertex(GetReg(REG_A0) + 4);
-	p->d3 = GetReg(REG_D3);
-	p->d4 = GetReg(REG_D4);
-	p->d5 = GetReg(REG_D5);
-	p->radius = GetReg(REG_D6);
-}
-
-void draw_oval(const void *payload)
-{
-	/* Not really understood yet (d3..d5 look like axis data); drawn as a
-	 * black disc exactly like the previous renderer. */
-	const POval *p = payload;
-	gd_color3ub(0, 0, 0);
-	gd_push();
-	gd_translate((float)p->v.x, (float)p->v.y, (float)p->v.z);
-	gd_disk((float)(int16_t)p->radius, 32);
-	gd_pop();
-}
-
 /* =========================================================================
  * Cylinder (lit on the CPU; only ~60 vertices)
  * ========================================================================= */
@@ -644,6 +614,58 @@ void Nu_ComplexBezier(void)
 	v[1] = m68k_vertex(GetReg(REG_A1) + 4);
 	v[2] = m68k_vertex(GetReg(REG_A2) + 4);
 	v[3] = m68k_vertex(GetReg(REG_A3) + 4);
+}
+
+/* A filled ellipse in 3D (the planet behind the intro's FRONTIER letters), one
+ * outline of a complex polygon. A0 is the centre, D3-D5 the normal (words, unit
+ * length is 0x8000) and D6 the radius.
+ *
+ * L37fb2_ProjectOvalXYZ makes it from two bezier edges from centre + u to
+ * centre - u, with control points offset by + and - v. u and v are perpendicular
+ * to the normal; 4/3 of the radius is what makes a bezier's peak reach it. */
+void Nu_PutOval(void)
+{
+	if (!complex_begin_record())
+		return;
+	Vec3i c = m68k_vertex(GetReg(REG_A0) + 4);
+	float nx = (float)(int16_t)GetReg(REG_D3);
+	float ny = (float)(int16_t)GetReg(REG_D4);
+	float nz = (float)(int16_t)GetReg(REG_D5);
+	float radius = (float)(uint16_t)GetReg(REG_D6);
+	float ctrl = radius * 4.0f / 3.0f;
+	float len2 = nx * nx + ny * ny;
+
+	float u[3] = {radius, 0, 0}, v[3] = {0, ctrl, 0};
+	if (len2 >= 0x9c40) /* otherwise it faces the camera: the game's cut-off */
+	{
+		float len = sqrtf(len2);
+		float s = ctrl / 32768.0f;
+		u[0] = -ny / len * radius;
+		u[1] = nx / len * radius;
+		v[0] = nx * nz / len * s;
+		v[1] = ny * nz / len * s;
+		v[2] = len * s; /* the game's -len, with view space z flipped */
+	}
+
+	static const float side[2][4][2] = {
+		{{1, 0}, {1, 1}, {-1, 1}, {-1, 0}},
+		{{-1, 0}, {-1, -1}, {1, -1}, {1, 0}},
+	};
+	scene_record(PRIM_COMPLEX_INNER, 0);
+	for (int e = 0; e < 2; e++)
+	{
+		Vec3i *cp = scene_record(PRIM_COMPLEX_BEZIER, 4 * sizeof *cp);
+		if (!cp)
+			return;
+		for (int i = 0; i < 4; i++)
+		{
+			float a = side[e][i][0], b = side[e][i][1];
+			cp[i].x = c.x + (int32_t)lroundf(a * u[0] + b * v[0]);
+			cp[i].y = c.y + (int32_t)lroundf(a * u[1] + b * v[1]);
+			cp[i].z = c.z + (int32_t)lroundf(a * u[2] + b * v[2]);
+		}
+	}
+	scene_record(PRIM_COMPLEX_INNER, 0);
 }
 
 void Nu_ComplexEnd(void)

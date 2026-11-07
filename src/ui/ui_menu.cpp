@@ -195,6 +195,22 @@ void page_settings()
 	ui_heading("Free camera");
 	wrapped_checkbox("Invert look up / down", &freecam_invert_y);
 	wrapped_checkbox("Show the help box (H)", &freecam_show_help);
+	ui_heading("Game fixes");
+	wrapped_checkbox("Proximity mines go off when a ship comes near (off: only when one flies into the mine)",
+					 &mine_prox);
+	if (mine_prox)
+	{
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::SliderInt("##mineradius", &mine_radius_m, 10, 2000, "mine goes off within %d m",
+						 ImGuiSliderFlags_Logarithmic);
+	}
+	wrapped_checkbox("Smoke trails of fast damaged ships stay near them", &smoke_inherit);
+	if (smoke_inherit)
+	{
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::SliderInt("##smokecap", &smoke_cap_ms, 10, 2000, "smoke keeps speed over %d m/s",
+						 ImGuiSliderFlags_Logarithmic);
+	}
 #endif
 	ui_heading("Aspect ratio");
 	if (ui_button(keep_aspect ? "Keep 4:3: ON" : "Keep 4:3: OFF"))
